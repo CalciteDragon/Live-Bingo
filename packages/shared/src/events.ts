@@ -1,63 +1,56 @@
+import { z } from 'zod';
 import type { MatchState, Player, WinReason } from './match.js';
 import type { WsErrorPayload } from './errors.js';
 
 // ---------------------------------------------------------------------------
-// Client → Server intent types
+// Client → Server: Zod schemas
+//
+// The server parses every incoming WebSocket message with ClientMessageSchema.
+// Discriminating on `type` narrows the `payload` type in switch/if blocks,
+// so no casting is needed after a successful parse.
 // ---------------------------------------------------------------------------
 
-export type ClientIntentType =
-  | 'SYNC_STATE'       // Request current state on connect/reconnect
-  | 'SET_READY'        // Toggle ready state in lobby
-  | 'START_MATCH'      // Host-only: start the match
-  | 'MARK_CELL'        // Mark an unmarked cell
-  | 'UNMARK_CELL'      // Unmark a cell the caller originally marked
-  | 'RESHUFFLE_BOARD'  // Host-only: regenerate board (only if no cells marked)
-  | 'BACK_TO_LOBBY'    // Host-only: return to lobby from InProgress or Completed
-  | 'REMATCH';         // Host-only: restart from Completed with same seed
+const baseClientFields = {
+  matchId: z.string().uuid(),
+  clientId: z.string().uuid(),
+  eventId: z.string().uuid(), // Client-generated UUID; used for at-most-once processing
+};
+
+export const ClientMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('SYNC_STATE'),      ...baseClientFields, payload: z.object({}) }),
+  z.object({ type: z.literal('SET_READY'),        ...baseClientFields, payload: z.object({ ready: z.boolean() }) }),
+  z.object({ type: z.literal('START_MATCH'),      ...baseClientFields, payload: z.object({}) }),
+  z.object({ type: z.literal('MARK_CELL'),        ...baseClientFields, payload: z.object({ cellIndex: z.number().int().min(0).max(24) }) }),
+  z.object({ type: z.literal('UNMARK_CELL'),      ...baseClientFields, payload: z.object({ cellIndex: z.number().int().min(0).max(24) }) }),
+  z.object({ type: z.literal('RESHUFFLE_BOARD'),  ...baseClientFields, payload: z.object({}) }),
+  z.object({ type: z.literal('BACK_TO_LOBBY'),    ...baseClientFields, payload: z.object({}) }),
+  z.object({ type: z.literal('REMATCH'),          ...baseClientFields, payload: z.object({}) }),
+]);
+
+export type ClientMessage = z.infer<typeof ClientMessageSchema>;
+
+/** Derived from the union — stays in sync with ClientMessageSchema automatically. */
+export type ClientIntentType = ClientMessage['type'];
+
+/** Payload types extracted from the discriminated union. */
+export type SetReadyPayload   = Extract<ClientMessage, { type: 'SET_READY'   }>['payload'];
+export type MarkCellPayload   = Extract<ClientMessage, { type: 'MARK_CELL'   }>['payload'];
+export type UnmarkCellPayload = Extract<ClientMessage, { type: 'UNMARK_CELL' }>['payload'];
 
 // ---------------------------------------------------------------------------
-// Client → Server payload shapes
-// ---------------------------------------------------------------------------
-
-export interface SetReadyPayload {
-  ready: boolean;
-}
-
-export interface MarkCellPayload {
-  cellIndex: number; // 0–24
-}
-
-export interface UnmarkCellPayload {
-  cellIndex: number; // 0–24
-}
-
-// ---------------------------------------------------------------------------
-// Client → Server envelope
-// ---------------------------------------------------------------------------
-
-export interface ClientMessage<P = unknown> {
-  type: ClientIntentType;
-  matchId: string;
-  clientId: string;
-  eventId: string; // Client-generated UUID; used for at-most-once processing
-  payload: P;
-}
-
-// ---------------------------------------------------------------------------
-// Server → Client message types
+// Server → Client: plain TypeScript
+//
+// These shapes are constructed by trusted server code. No runtime validation
+// is needed — TypeScript enforces correctness at compile time.
 // ---------------------------------------------------------------------------
 
 export type ServerMessageType =
-  | 'STATE_SYNC'      // Single-recipient hydration response to SYNC_STATE
-  | 'STATE_UPDATE'    // Broadcast after every accepted intent
-  | 'ERROR'           // Validation failure or rejected intent
-  | 'MATCH_STARTED'   // Convenience broadcast on match start
-  | 'MATCH_COMPLETED' // Broadcast with win reason on match end
+  | 'STATE_SYNC'       // Single-recipient hydration response to SYNC_STATE
+  | 'STATE_UPDATE'     // Broadcast after every accepted intent
+  | 'ERROR'            // Validation failure or rejected intent
+  | 'MATCH_STARTED'    // Convenience broadcast on match start
+  | 'MATCH_COMPLETED'  // Broadcast with win reason on match end
   | 'PRESENCE_UPDATE'; // Broadcast on join, leave, disconnect, reconnect
-
-// ---------------------------------------------------------------------------
-// Server → Client payload shapes
-// ---------------------------------------------------------------------------
 
 export interface StateSyncPayload {
   state: MatchState;
@@ -70,22 +63,17 @@ export interface StateUpdatePayload {
 
 export interface MatchCompletedPayload {
   reason: WinReason;
-  winnerId: string | null; // playerId, null on draw
+  winnerId: string | null; // null on draw
 }
 
 export interface PresenceUpdatePayload {
   players: Player[];
 }
 
-// WsErrorPayload is re-exported here for consumers who only import from events
-export type { WsErrorPayload };
-
-// ---------------------------------------------------------------------------
-// Server → Client envelope
-// ---------------------------------------------------------------------------
-
-export interface ServerMessage<P = unknown> {
-  type: ServerMessageType;
-  matchId: string;
-  payload: P;
-}
+export type ServerMessage =
+  | { type: 'STATE_SYNC';      matchId: string; payload: StateSyncPayload }
+  | { type: 'STATE_UPDATE';    matchId: string; payload: StateUpdatePayload }
+  | { type: 'ERROR';           matchId: string; payload: WsErrorPayload }
+  | { type: 'MATCH_STARTED';   matchId: string; payload: Record<string, never> }
+  | { type: 'MATCH_COMPLETED'; matchId: string; payload: MatchCompletedPayload }
+  | { type: 'PRESENCE_UPDATE'; matchId: string; payload: PresenceUpdatePayload };
