@@ -1,0 +1,169 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+Real-time 1v1 Minecraft Bingo web app. Players share a link to join a lobby, then compete on a shared 5×5 bingo card by manually marking cells. The server is the sole source of truth; clients send intent events and receive authoritative state snapshots.
+
+Full system design: `docs/design/minecraft_bingo_system_overview.md`
+
+## Monorepo Structure
+
+npm workspaces monorepo:
+
+- `apps/api/` — Node.js + TypeScript REST + WebSocket server
+- `apps/web/` — Angular SPA
+- `packages/engine/` — Pure match engine (no I/O, no side effects)
+- `packages/shared/` — Shared TypeScript types and Zod schemas
+
+## Commands
+
+```bash
+# Run all workspaces tests
+npm test
+
+# Dev servers
+npm run dev:api
+npm run dev:web
+
+# Workspace-specific commands
+npm run <script> --workspace=apps/api
+npm run <script> --workspace=apps/web
+npm run <script> --workspace=packages/engine
+```
+
+## TypeScript Configuration
+
+`tsconfig.base.json` is the base config (strict mode, ES2022, Node16 modules). Each workspace extends it.
+
+## Architecture
+
+### Key Design Rules
+
+- **Server-authoritative**: All state mutations are validated and applied server-side. Clients send intents; the server validates, persists, and broadcasts the resulting `MatchState` snapshot.
+- **Pure match engine** (`packages/engine`): `applyEvent()`, `validateEvent()`, `checkWin()` must be IO-free, side-effect-free, and have no external dependencies. They never mutate input state or generate random numbers.
+- **Explicit contracts**: All boundaries between client, server, and engine use shared TypeScript types and Zod schemas from `packages/shared`.
+- **Idempotency**: Every client intent includes a `clientId` and `eventId` UUID. The server processes each `eventId` at most once per match.
+- **Full snapshots over WebSocket**: Every accepted event triggers a broadcast of the full `MatchState` to both clients (no diff/patch for MVP).
+
+### Communication
+
+- REST: match creation, join, and initial hydration (`GET /matches/:id`)
+- WebSocket: all real-time events. Client → Server uses `{ type, matchId, clientId, eventId, payload }`. Server → Client uses `{ type, matchId, payload }`.
+- `X-Client-Id` header required on all REST requests.
+
+### Match Lifecycle
+
+`Lobby` → `InProgress` → `Completed` → (rematch) `InProgress` or (back to lobby) `Lobby`
+Any state → `Abandoned` (both players disconnect; destroyed after 10-minute timeout)
+
+Host (slot 1, always the creator) controls: `START_MATCH`, `RESHUFFLE_BOARD`, `BACK_TO_LOBBY`, `REMATCH`.
+
+### Win Conditions (server-evaluated only)
+
+1. **Line** — 5 cells in a row/column/diagonal, all owned by the same player
+2. **Majority** — 13+ cells owned by one player (on 5×5 board)
+3. **Win-by-time** — countdown reaches zero; more marked cells wins (tie = draw)
+
+Priority if multiple conditions trigger simultaneously: line > majority.
+
+### Persistence
+
+Postgres (Render-managed). After every accepted event, the server persists a full `state_json` JSONB snapshot to the `matches` table. The `match_events` table is append-only and used for debugging/auditing only. On server restart, active matches are reconstructed from `state_json`.
+
+### Testing Priority
+
+Engine unit tests (`packages/engine`) have the highest ROI — test `applyEvent`, `validateEvent`, `checkWin` exhaustively before building the UI. Frontend and backend can be developed in parallel once the engine and event contracts are stable.
+
+### Deployment
+
+Render: Angular SPA as Static Site, Node API as Web Service, Postgres as Managed DB.
+Required env vars: `DATABASE_URL`, `NODE_ENV`, `PORT`, `CLIENT_ORIGIN`.
+
+## Project instructions provided by user (may overlap with above):
+You are helping me design and build a small but serious personal web project: a real-time 1v1 Minecraft Bingo challenge web app.
+
+PROJECT GOAL
+Build a fun, actually usable app I can play with friends, while deliberately practicing the same architectural, design, and testing skills used in full-stack business software.
+
+This is NOT a throwaway demo or college-style assignment. Treat it like a real product with a tight scope.
+
+CORE FUNCTIONALITY (MVP)
+- 1v1 real-time matches
+- Create / join match via link or code
+- Shared 5x5 bingo card generated from a seed
+- Lobby with ready state
+- Match start with server-authoritative timer
+- Manual cell marking (no auto-verification)
+- Win detection (row / column / diagonal)
+- Results screen
+
+TECH STACK (FIXED)
+- Frontend: Angular + TypeScript (SPA)
+- Backend: Node.js + TypeScript
+- Realtime: WebSockets (event-based, explicit contracts)
+- Database: Postgres
+- Hosting / PaaS: Render
+  - Angular deployed as Static Site (with SPA rewrites)
+  - Node/TS backend as Web Service
+  - Managed Render Postgres
+
+ARCHITECTURAL PRINCIPLES
+- Server is authoritative; frontend is a state renderer
+- Event-driven design:
+  - Client sends events
+  - Server validates, applies, persists, broadcasts
+- Core match logic lives in a pure, IO-free “engine”
+  - applyEvent(state, event) → newState
+  - validateEvent(state, event)
+  - checkWin(state)
+- Favor explicit contracts over magic abstractions
+- Reconnect and idempotency must be considered
+
+PROJECT STRUCTURE (PREFERRED)
+Monorepo:
+- /apps/web        → Angular client
+- /apps/api        → Node/TS backend
+- /packages/shared → Shared TypeScript types + zod schemas
+
+DESIGN-FIRST + TEST-DRIVEN APPROACH
+Before major coding:
+- Define domain models
+- Define match lifecycle state machine
+- Define REST endpoints and WebSocket message contracts
+- Define invariants and validation rules
+- Define minimal Postgres schema
+- Write a test plan
+
+Testing priorities:
+- Backend engine unit tests are highest value
+- Minimal integration tests for REST + WS
+- Frontend component tests for rendering + interactions
+
+TIME CONSTRAINT
+- Entire project should be finishable in under 1 month
+- Design phase is explicitly included in the schedule
+- Scope discipline is critical
+
+NON-GOALS (DO NOT SUGGEST UNLESS ASKED)
+- Minecraft mods or log parsing
+- Account systems / social graphs
+- Ranking / Elo systems
+- Over-engineered microservices
+- Mobile apps
+- Feature creep that risks shipping
+
+HOW I WANT YOU TO HELP
+- Act like a technical design partner, not a tutorial
+- Push for clarity, correctness, and good architecture
+- Call out scope risks early
+- Prefer concrete deliverables over vague advice
+- When suggesting features, explain tradeoffs and impact on scope
+- Assume I want to learn industry-relevant patterns, not shortcuts
+
+When answering future questions:
+- Maintain consistency with this project’s goals and constraints
+- Reference earlier architectural decisions instead of reinventing them
+- Favor simple, robust solutions that ship over clever ones
+
