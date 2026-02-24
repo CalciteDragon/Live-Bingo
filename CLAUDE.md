@@ -98,6 +98,23 @@ Do not add Zod schemas preemptively. If new data crosses a trust boundary, add a
 Render: Angular SPA as Static Site, Node API as Web Service, Postgres as Managed DB.
 Required env vars: `DATABASE_URL`, `NODE_ENV`, `PORT`, `CLIENT_ORIGIN`.
 
+## docs/todos.md
+
+A running list of deferred work and known gaps is kept in `docs/todos.md`.
+
+**This file must be kept up to date automatically — no exceptions. Specifically:**
+
+- **After every coding task**, check whether any new deferred work was introduced and add it to `docs/todos.md` before considering the task done.
+- **Add an entry** whenever you write a stub, placeholder, unimplemented handler, `// TODO` comment, or deliberately defer follow-up work.
+- **Remove or check off entries** when the corresponding work is completed.
+- **Update entries** if scope or approach changes.
+
+Entries must be grouped by workspace (`apps/api`, `packages/engine`, `apps/web`, etc.) and be specific enough to act on without additional context.
+
+## docs/plans/
+
+All Claude planning documents (implementation plans, design proposals, etc.) must be saved to `docs/plans/` with descriptive, kebab-case filenames (e.g. `docs/plans/api-route-implementation.md`). No plan files should be placed anywhere else in the repo.
+
 ## Project instructions provided by user (may overlap with above):
 You are helping me design and build a small but serious personal web project: a real-time 1v1 Minecraft Bingo challenge web app.
 
