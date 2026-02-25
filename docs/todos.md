@@ -16,6 +16,8 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Implement match persistence (write `state_json` after every accepted event)
 - [ ] Implement at-most-once `eventId` deduplication
 - [ ] Implement 10-minute abandoned match cleanup
+- [ ] Add logging middleware
+- [ ] Local deployment setup: run commands for server, client, and database together
 
 ## `packages/engine`
 
@@ -28,3 +30,6 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 - [ ] Scaffold Angular app
 - [ ] Add `apps/web` to root `tsconfig.json` references
+
+## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
+

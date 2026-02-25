@@ -102,14 +102,16 @@ Required env vars: `DATABASE_URL`, `NODE_ENV`, `PORT`, `CLIENT_ORIGIN`.
 
 A running list of deferred work and known gaps is kept in `docs/todos.md`.
 
-**This file must be kept up to date automatically — no exceptions. Specifically:**
+**This file must be kept up to date at all times — no exceptions. Treat it as a live source of truth, not an append-only log.**
 
-- **After every coding task**, check whether any new deferred work was introduced and add it to `docs/todos.md` before considering the task done.
 - **Add an entry** whenever you write a stub, placeholder, unimplemented handler, `// TODO` comment, or deliberately defer follow-up work.
-- **Remove or check off entries** when the corresponding work is completed.
-- **Update entries** if scope or approach changes.
+- **Remove an entry** as soon as the corresponding work is completed — do not leave stale completed items.
+- **Modify an entry** if the scope, approach, or wording no longer accurately describes what needs to be done.
+- **After every coding task**, scan the file for entries affected by your changes and add, remove, or update them before considering the task done.
 
 Entries must be grouped by workspace (`apps/api`, `packages/engine`, `apps/web`, etc.) and be specific enough to act on without additional context.
+
+The `user-added-todos` section at the bottom of the file is permanent — never remove it. Whenever you see entries there, sort them into the correct workspace group (creating one alphabetically if needed), then leave the section header empty and ready for new entries.
 
 ## docs/plans/
 
