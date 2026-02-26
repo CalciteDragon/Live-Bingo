@@ -17,7 +17,6 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Implement at-most-once `eventId` deduplication
 - [ ] Implement 10-minute abandoned match cleanup
 - [ ] Add logging middleware
-- [ ] Add a root npm script (e.g. using `concurrently`) to start API and web dev servers together (`npm run dev`)
 
 ## `packages/engine`
 
