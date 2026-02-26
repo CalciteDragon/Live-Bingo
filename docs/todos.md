@@ -28,8 +28,14 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/web`
 
-- [ ] Scaffold Angular app
-- [ ] Add `apps/web` to root `tsconfig.json` references
+- [ ] Implement Home page component
+- [ ] Implement Lobby page component
+- [ ] Implement Match page component
+- [ ] Implement Results page component
+
+## CI
+
+- [ ] Create `.github/workflows/ci.yml` with three jobs: `test-engine`, `test-api`, `build-web`
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
 

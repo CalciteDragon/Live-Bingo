@@ -1,11 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "ES2022",
+    "module": "preserve",
     "moduleResolution": "bundler",
     "lib": ["ES2022", "dom", "dom.iterable"],
     "useDefineForClassFields": false,
     "experimentalDecorators": true,
+    "isolatedModules": true,
+    "importHelpers": true,
     "declaration": false,
     "declarationMap": false,
     "baseUrl": ".",
@@ -14,8 +16,14 @@
     }
   },
   "angularCompilerOptions": {
+    "enableI18nLegacyMessageIdFormat": false,
     "strictInjectionParameters": true,
     "strictInputAccessModifiers": true,
     "strictTemplates": true
-  }
+  },
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.spec.json" }
+  ]
 }
