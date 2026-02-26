@@ -32,10 +32,11 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Implement Lobby page component
 - [ ] Implement Match page component
 - [ ] Implement Results page component
+- [ ] Write unit tests for page components
 
 ## CI
 
-- [ ] Create `.github/workflows/ci.yml` with three jobs: `test-engine`, `test-api`, `build-web`
+- [ ] Add Postgres service to `test-api` job once DB integration is implemented
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
 
