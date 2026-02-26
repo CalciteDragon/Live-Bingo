@@ -10,10 +10,14 @@
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
     "test": "npm run test --workspaces --if-present",
+    "lint": "eslint .",
     "ci": "npm run build && npm test"
   },
   "devDependencies": {
+    "angular-eslint": "^21.2.0",
+    "eslint": "^9.39.3",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1"
   }
 }
