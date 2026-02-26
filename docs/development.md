@@ -4,7 +4,7 @@
 
 - **Node.js** v20+ (check `.nvmrc` or `engines` field if present)
 - **npm** v10+ (comes with Node 20)
-- A running **Postgres** instance for `apps/api` (see Environment Variables below)
+- **Docker** (for the local Postgres instance)
 
 ---
 
@@ -50,6 +50,23 @@ npm run test --workspace=packages/engine
 
 ---
 
+## Database
+
+```bash
+# Start Postgres in the background
+docker compose up -d
+
+# Stop Postgres (keeps data)
+docker compose stop
+
+# Stop and destroy all data
+docker compose down -v
+```
+
+Credentials are defined in `docker-compose.yml` and pre-configured in `apps/api/.env.example`.
+
+---
+
 ## Dev Servers
 
 ```bash
@@ -65,9 +82,13 @@ npm run dev:web
 ## Database Migrations
 
 ```bash
-# Run migrations (apps/api workspace)
+# Run all pending migrations
 npm run migrate --workspace=apps/api
 ```
+
+Migrations live in `apps/api/migrations/` and are managed by `node-pg-migrate`. The script loads `apps/api/.env` automatically — no manual env export needed.
+
+Migration files are SQL, named `{epoch_ms}_{description}.sql`, with `-- Up Migration` and `-- Down Migration` comment markers as section separators.
 
 Migrations must be run before the API server will start successfully against a fresh database.
 
