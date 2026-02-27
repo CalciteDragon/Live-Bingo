@@ -1,0 +1,93 @@
+/**
+ * Hardcoded list of Minecraft bingo goals.
+ * Must contain at least 25 entries; 50+ gives variety across different seeds.
+ */
+export const GOALS: readonly string[] = [
+  // Crafting & tools
+  'Craft a fishing rod',
+  'Craft a compass',
+  'Craft a clock',
+  'Craft an anvil',
+  'Craft a bookshelf',
+  'Craft a jukebox',
+  'Craft a lead',
+  'Craft a name tag',
+  'Craft a beacon',
+  'Craft a conduit',
+
+  // Mining & resources
+  'Mine a diamond ore',
+  'Mine an emerald ore',
+  'Mine ancient debris',
+  'Mine a block of obsidian',
+  'Obtain a nether quartz ore',
+  'Find a geode',
+  'Collect 64 iron ingots',
+  'Collect 32 gold ingots',
+  'Collect a stack of coal',
+  'Collect a stack of redstone dust',
+
+  // Exploration & structures
+  'Enter the Nether',
+  'Enter the End',
+  'Find a village',
+  'Find a stronghold',
+  'Find a desert temple',
+  'Find a jungle temple',
+  'Find an ocean monument',
+  'Find a woodland mansion',
+  'Find a bastion remnant',
+  'Find a nether fortress',
+  'Find an end city',
+  'Find a shipwreck',
+  'Find a buried treasure',
+
+  // Mobs & combat
+  'Kill a creeper',
+  'Kill a skeleton with an arrow',
+  'Kill an enderman',
+  'Kill a blaze',
+  'Kill a wither skeleton',
+  'Kill a ghast',
+  'Kill a pillager',
+  'Kill a drowned',
+  'Kill an elder guardian',
+  'Kill a hoglin',
+  'Kill a shulker',
+  'Kill a phantom',
+  'Kill the Ender Dragon',
+  'Kill the Wither',
+
+  // Food & farming
+  'Eat a golden apple',
+  'Eat a suspicious stew',
+  'Brew a potion of Strength',
+  'Brew a potion of Night Vision',
+  'Brew a splash potion',
+  'Grow a pumpkin',
+  'Grow a melon',
+  'Breed two cows',
+  'Breed two pigs',
+  'Tame a wolf',
+  'Tame a cat',
+  'Tame a horse',
+
+  // Achievements & feats
+  'Wear a full set of iron armor',
+  'Wear a full set of diamond armor',
+  'Enchant an item using a table',
+  'Get an item to level-30 enchant',
+  'Trade with a villager',
+  'Trade with a wandering trader',
+  'Use a totem of undying',
+  'Travel 1000 blocks from spawn',
+  'Sleep in a bed in the Nether (attempt)',
+  'Reach the top of the world (Y=320)',
+  'Ride a pig with a carrot on a stick',
+  'Ride a strider in the Nether',
+  'Use an elytra',
+  'Fill a map completely',
+  'Place a banner on a shield',
+  'Dye a sheep',
+  'Put a saddle on a horse',
+];
