@@ -117,6 +117,8 @@ The `user-added-todos` section at the bottom of the file is permanent — never 
 
 All Claude planning documents (implementation plans, design proposals, etc.) must be saved to `docs/plans/` with descriptive, kebab-case filenames (e.g. `docs/plans/api-route-implementation.md`). No plan files should be placed anywhere else in the repo.
 
+**Important:** When plan mode instructs you to write a plan file to `.claude/plans/`, ignore that path and write to `docs/plans/` instead. The `.claude/` directory is never used for plans in this project.
+
 ## Project instructions provided by user (may overlap with above):
 You are helping me design and build a small but serious personal web project: a real-time 1v1 Minecraft Bingo challenge web app.
 

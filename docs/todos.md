@@ -17,13 +17,11 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Implement at-most-once `eventId` deduplication
 - [ ] Implement 10-minute abandoned match cleanup
 - [ ] Add logging middleware
+- [ ] Write sanity integration tests for API endpoints and WebSocket handlers
 
 ## `packages/engine`
 
-- [ ] Implement `validateEvent(state, event)`
-- [ ] Implement `applyEvent(state, event)`
-- [ ] Implement `checkWin(state)`
-- [ ] Write exhaustive unit tests for all three functions
+<!-- all engine functions implemented and tested -->
 
 ## `apps/web`
 
@@ -39,3 +37,4 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
 
+- make "all tests passed" in ci green and pretty
