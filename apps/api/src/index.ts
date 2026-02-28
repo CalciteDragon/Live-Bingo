@@ -1,27 +1,13 @@
 import 'dotenv/config';
-import express from 'express';
-import cors from 'cors';
 import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
-import { matchRouter } from './routes/index.js';
+import { createApp } from './app.js';
 import { handleUpgrade } from './ws/index.js';
 import { db } from './db/index.js';
 import { setMatch } from './match-registry.js';
 import type { MatchState } from '@bingo/shared';
 
-const app = express();
-app.use(cors({ origin: process.env['CLIENT_ORIGIN'] }));
-app.use(express.json());
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    console.log(`${new Date().toISOString()} ${req.method} ${req.path} ${res.statusCode} ${Date.now() - start}ms`);
-  });
-  next();
-});
-
-app.use('/matches', matchRouter);
-
+const app = createApp();
 const server = createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 

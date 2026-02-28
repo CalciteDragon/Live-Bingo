@@ -6,9 +6,6 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/api`
 
-- [ ] Implement `POST /matches` — accept alias + timer settings in body, create match, persist to DB, return `CreateMatchResponse`
-- [ ] Implement `POST /matches/:id/join` — accept alias in body, validate join code, assign slot 2, return `JoinMatchResponse`
-- [ ] Implement `GET /matches/:id` — hydrate client with current `MatchState`
 - [ ] Implement WebSocket intent routing in `src/ws/index.ts` (route parsed `ClientMessage` to handlers)
 - [ ] Implement disconnect / presence update handling in `src/ws/index.ts`
 - [ ] Send typed `ERROR` message back to client on invalid WebSocket message
@@ -39,3 +36,6 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Add Postgres service to `test-api` job once DB integration is implemented
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
+
+- add join via just join code from home page (without needing to paste a full URL)
+- what is the reconnection flow for a player? if a client page refreshes do they need to hit the get endpoint again?

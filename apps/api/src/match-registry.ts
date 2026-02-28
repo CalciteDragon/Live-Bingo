@@ -1,5 +1,5 @@
-import type { WebSocket } from 'ws';
-import type { MatchState } from '@bingo/shared';
+import { WebSocket } from 'ws';
+import type { MatchState, ServerMessage } from '@bingo/shared';
 
 export interface MatchEntry {
   state: MatchState;
@@ -33,5 +33,19 @@ export function removeSocket(matchId: string, clientId: string): void {
   const entry = registry.get(matchId);
   if (entry) {
     entry.sockets.delete(clientId);
+  }
+}
+
+function sendTo(ws: WebSocket, message: ServerMessage): void {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(message));
+  }
+}
+
+export function broadcastToMatch(matchId: string, message: ServerMessage): void {
+  const entry = registry.get(matchId);
+  if (!entry) return;
+  for (const ws of entry.sockets.values()) {
+    sendTo(ws, message);
   }
 }

@@ -117,7 +117,7 @@ Request body validated with `CreateMatchBodySchema` (to be added to `@bingo/shar
 6. `setMatch(matchId, { state, sockets: new Map() })`
 7. Return `CreateMatchResponse { matchId, joinCode, joinUrl: \`${CLIENT_ORIGIN}/join/${joinCode}\`, state }`
 
-> **Gap — lobby settings after creation**: There is currently no `SET_LOBBY_SETTINGS` WebSocket event. Timer mode and duration are fixed at creation time and cannot be changed in the lobby. For MVP this is acceptable; if mid-lobby settings changes are needed, a new event and schema entry must be added to `@bingo/shared`.
+> **Note**: Timer mode defaults to `stopwatch` on match creation. The host changes it in the lobby via the `SET_LOBBY_SETTINGS` WebSocket event (added to `ClientMessageSchema` and handled by the engine). The WS routing layer will apply it during Phase 3.
 
 ### `POST /matches/:id/join` — Join Match
 

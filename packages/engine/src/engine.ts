@@ -42,6 +42,15 @@ export function validateEvent(state: MatchState, event: ClientMessage): void {
         throw new EngineError('INVALID_STATE', 'SET_READY requires Lobby status');
       return;
 
+    case 'SET_LOBBY_SETTINGS':
+      if (state.status !== 'Lobby')
+        throw new EngineError('INVALID_STATE', 'SET_LOBBY_SETTINGS requires Lobby status');
+      if (!isHost)
+        throw new EngineError('NOT_AUTHORIZED', 'Only the host can change lobby settings');
+      if (event.payload.timerMode === 'countdown' && event.payload.countdownDurationMs == null)
+        throw new EngineError('INVALID_EVENT', 'countdownDurationMs is required when timerMode is countdown');
+      return;
+
     case 'START_MATCH':
       if (state.status !== 'Lobby')
         throw new EngineError('INVALID_STATE', 'START_MATCH requires Lobby status');
@@ -126,6 +135,16 @@ export function applyEvent(
         ...state,
         readyStates: { ...state.readyStates, [caller.playerId]: event.payload.ready },
       };
+
+    case 'SET_LOBBY_SETTINGS': {
+      const { timerMode, countdownDurationMs } = event.payload;
+      const duration = countdownDurationMs ?? null;
+      return {
+        ...state,
+        lobbySettings: { timerMode, countdownDurationMs: duration },
+        timer: { ...state.timer, mode: timerMode, countdownDurationMs: duration },
+      };
+    }
 
     case 'START_MATCH':
       return {

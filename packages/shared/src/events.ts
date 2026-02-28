@@ -17,14 +17,15 @@ const baseClientFields = {
 };
 
 export const ClientMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('SYNC_STATE'),      ...baseClientFields, payload: z.object({}) }),
-  z.object({ type: z.literal('SET_READY'),        ...baseClientFields, payload: z.object({ ready: z.boolean() }) }),
-  z.object({ type: z.literal('START_MATCH'),      ...baseClientFields, payload: z.object({}) }),
-  z.object({ type: z.literal('MARK_CELL'),        ...baseClientFields, payload: z.object({ cellIndex: z.number().int().min(0).max(24) }) }),
-  z.object({ type: z.literal('UNMARK_CELL'),      ...baseClientFields, payload: z.object({ cellIndex: z.number().int().min(0).max(24) }) }),
-  z.object({ type: z.literal('RESHUFFLE_BOARD'),  ...baseClientFields, payload: z.object({}) }),
-  z.object({ type: z.literal('BACK_TO_LOBBY'),    ...baseClientFields, payload: z.object({}) }),
-  z.object({ type: z.literal('REMATCH'),          ...baseClientFields, payload: z.object({}) }),
+  z.object({ type: z.literal('SYNC_STATE'),         ...baseClientFields, payload: z.object({}) }),
+  z.object({ type: z.literal('SET_READY'),          ...baseClientFields, payload: z.object({ ready: z.boolean() }) }),
+  z.object({ type: z.literal('SET_LOBBY_SETTINGS'), ...baseClientFields, payload: z.object({ timerMode: z.enum(['stopwatch', 'countdown']), countdownDurationMs: z.number().int().positive().optional() }) }),
+  z.object({ type: z.literal('START_MATCH'),        ...baseClientFields, payload: z.object({}) }),
+  z.object({ type: z.literal('MARK_CELL'),          ...baseClientFields, payload: z.object({ cellIndex: z.number().int().min(0).max(24) }) }),
+  z.object({ type: z.literal('UNMARK_CELL'),        ...baseClientFields, payload: z.object({ cellIndex: z.number().int().min(0).max(24) }) }),
+  z.object({ type: z.literal('RESHUFFLE_BOARD'),    ...baseClientFields, payload: z.object({}) }),
+  z.object({ type: z.literal('BACK_TO_LOBBY'),      ...baseClientFields, payload: z.object({}) }),
+  z.object({ type: z.literal('REMATCH'),            ...baseClientFields, payload: z.object({}) }),
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
