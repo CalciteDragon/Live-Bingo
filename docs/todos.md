@@ -15,6 +15,7 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Implement match persistence (write `state_json` after every accepted event)
 - [ ] Implement at-most-once `eventId` deduplication
 - [ ] Implement 10-minute abandoned match cleanup
+- [ ] Reschedule countdown timers on startup hydration (Phase 5)
 - [ ] Write sanity integration tests for API endpoints and WebSocket handlers
 
 ## `packages/shared`
