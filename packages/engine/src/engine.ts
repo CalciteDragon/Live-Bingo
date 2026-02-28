@@ -182,17 +182,19 @@ export function applyEvent(
         result: null,
       };
 
-    case 'REMATCH':
+    case 'REMATCH': {
+      const rematchCard = ctx.newCard ?? {
+        ...state.card,
+        cells: state.card.cells.map((c) => ({ ...c, markedBy: null })),
+      };
       return {
         ...state,
         status: 'InProgress',
-        card: {
-          ...state.card,
-          cells: state.card.cells.map((c) => ({ ...c, markedBy: null })),
-        },
+        card: rematchCard,
         timer: { ...state.timer, startedAt: ctx.nowIso ?? null },
         result: null,
       };
+    }
   }
 }
 

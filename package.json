@@ -12,7 +12,7 @@
     "dev:web": "npm run dev --workspace=apps/web",
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint .",
-    "ci": "npm run build && npm test && echo 'All tests passed'"
+    "ci": "npm run build && npm test && printf '\\n\\033[32mAll tests passed\\033[0m\\n'"
   },
   "devDependencies": {
     "angular-eslint": "^21.2.0",

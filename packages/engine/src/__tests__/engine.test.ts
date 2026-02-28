@@ -398,10 +398,21 @@ describe('applyEvent', () => {
     expect(next.result).toBeNull();
   });
 
-  it('REMATCH — card seed unchanged', () => {
+  it('REMATCH — uses ctx.newCard when provided', () => {
+    const newCard = makeCard({ seed: 999 });
     const state = makeState({ status: 'Completed', card: makeCard({ seed: 55 }) });
+    const next = applyEvent(state, rematch(), { nowIso: '2024-01-01T00:00:00Z', newCard });
+    expect(next.card).toEqual(newCard);
+  });
+
+  it('REMATCH — falls back to clearing marks on existing card when ctx.newCard not provided', () => {
+    const cells = Array.from({ length: 25 }, (_, i) =>
+      makeCell(i, i < 5 ? HOST_ID : null),
+    );
+    const state = makeState({ status: 'Completed', card: makeCard({ seed: 55, cells }) });
     const next = applyEvent(state, rematch(), { nowIso: '2024-01-01T00:00:00Z' });
     expect(next.card.seed).toBe(55);
+    expect(next.card.cells.every((c) => c.markedBy === null)).toBe(true);
   });
 
   it('input state is never mutated', () => {

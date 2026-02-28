@@ -9,6 +9,13 @@ import { handleUpgrade } from './ws/index.js';
 const app = express();
 app.use(cors({ origin: process.env['CLIENT_ORIGIN'] }));
 app.use(express.json());
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    console.log(`${new Date().toISOString()} ${req.method} ${req.path} ${res.statusCode} ${Date.now() - start}ms`);
+  });
+  next();
+});
 
 app.use('/matches', matchRouter);
 
