@@ -21,10 +21,7 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `packages/engine`
 
-- [ ] Implement `validateEvent(state, event)`
-- [ ] Implement `applyEvent(state, event, ctx: EngineContext)`
-- [ ] Implement `checkWin(state)`
-- [ ] Write exhaustive unit tests for all three engine functions
+<!-- all engine functions implemented and tested -->
 
 ## `apps/web`
 
@@ -40,5 +37,4 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
 
-- npm run ci should have an "all tests pass" indicator at the end of the output
-- make src/app/app.spec.ts automatically exit after one round of tests (currently i have to press q to quit every time)
+- make "all tests passed" in ci green and pretty
