@@ -12,7 +12,7 @@
     "dev:web": "npm run dev --workspace=apps/web",
     "test": "npm run test --workspaces --if-present",
     "lint": "eslint .",
-    "ci": "npm run build && npm test && printf '\\n\\033[32mAll tests passed\\033[0m\\n'"
+    "ci": "npm run build && npm test && node -e \"console.log('\\x1b[32m\\n------------------------\\n\\u2713   All tests passed\\n------------------------\\x1b[0m')\" || node -e \"console.error('\\x1b[31m\\n------------------------\\n\\u2717   Tests failed\\n------------------------\\x1b[0m'); process.exit(1)\""
   },
   "devDependencies": {
     "angular-eslint": "^21.2.0",
