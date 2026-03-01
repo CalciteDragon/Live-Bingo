@@ -42,6 +42,15 @@ export function validateEvent(state: MatchState, event: ClientMessage): void {
         throw new EngineError('INVALID_STATE', 'SET_READY requires Lobby status');
       return;
 
+    case 'SET_LOBBY_SETTINGS':
+      if (state.status !== 'Lobby')
+        throw new EngineError('INVALID_STATE', 'SET_LOBBY_SETTINGS requires Lobby status');
+      if (!isHost)
+        throw new EngineError('NOT_AUTHORIZED', 'Only the host can change lobby settings');
+      if (event.payload.timerMode === 'countdown' && event.payload.countdownDurationMs == null)
+        throw new EngineError('INVALID_EVENT', 'countdownDurationMs is required when timerMode is countdown');
+      return;
+
     case 'START_MATCH':
       if (state.status !== 'Lobby')
         throw new EngineError('INVALID_STATE', 'START_MATCH requires Lobby status');
@@ -127,6 +136,16 @@ export function applyEvent(
         readyStates: { ...state.readyStates, [caller.playerId]: event.payload.ready },
       };
 
+    case 'SET_LOBBY_SETTINGS': {
+      const { timerMode, countdownDurationMs } = event.payload;
+      const duration = countdownDurationMs ?? null;
+      return {
+        ...state,
+        lobbySettings: { timerMode, countdownDurationMs: duration },
+        timer: { ...state.timer, mode: timerMode, countdownDurationMs: duration },
+      };
+    }
+
     case 'START_MATCH':
       return {
         ...state,
@@ -182,17 +201,19 @@ export function applyEvent(
         result: null,
       };
 
-    case 'REMATCH':
+    case 'REMATCH': {
+      const rematchCard = ctx.newCard ?? {
+        ...state.card,
+        cells: state.card.cells.map((c) => ({ ...c, markedBy: null })),
+      };
       return {
         ...state,
         status: 'InProgress',
-        card: {
-          ...state.card,
-          cells: state.card.cells.map((c) => ({ ...c, markedBy: null })),
-        },
+        card: rematchCard,
         timer: { ...state.timer, startedAt: ctx.nowIso ?? null },
         result: null,
       };
+    }
   }
 }
 

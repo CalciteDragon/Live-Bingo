@@ -6,18 +6,12 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/api`
 
-- [ ] Implement `POST /matches` — create match, persist to DB, return `CreateMatchResponse`
-- [ ] Implement `POST /matches/:id/join` — validate join code, assign slot 2, return `JoinMatchResponse`
-- [ ] Implement `GET /matches/:id` — hydrate client with current `MatchState`
-- [ ] Implement WebSocket intent routing in `src/ws/index.ts` (route parsed `ClientMessage` to handlers)
-- [ ] Implement disconnect / presence update handling in `src/ws/index.ts`
-- [ ] Send typed `ERROR` message back to client on invalid WebSocket message
-- [ ] Run migrations automatically on API startup (or as a pre-start step in deployment)
-- [ ] Implement match persistence (write `state_json` after every accepted event)
-- [ ] Implement at-most-once `eventId` deduplication
-- [ ] Implement 10-minute abandoned match cleanup
-- [ ] Add logging middleware
-- [ ] Write sanity integration tests for API endpoints and WebSocket handlers
+- [ ] Write integration tests for API endpoints and WebSocket handlers against a real Postgres instance (unit tests with mocked DB already exist) (make sure this is in a seperate command from npm run ci)
+- [ ] Harden idempotency and ACID behavior across in-memory registry and Postgres persistence paths
+
+## `packages/shared`
+
+<!-- CreateMatchBodySchema and JoinMatchBodySchema (with alias) implemented -->
 
 ## `packages/engine`
 
@@ -25,9 +19,9 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/web`
 
-- [ ] Implement Home page component
-- [ ] Implement Lobby page component
-- [ ] Implement Match page component
+- [ ] Implement Home page component — collect alias (pre-filled random name) before creating/joining; support joining via join code alone (no full URL required)
+- [ ] Implement Lobby page component — show timer mode, allow host to configure countdown duration; display board seed; allow host to set a custom seed
+- [ ] Implement Match page component — on page refresh, re-hit `GET /matches/:id` for initial state, then reconnect WebSocket to `ws://api/ws?matchId=xxx&clientId=xxx`; server sends `STATE_SYNC` on connect
 - [ ] Implement Results page component
 - [ ] Write unit tests for page components
 
@@ -36,5 +30,3 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Add Postgres service to `test-api` job once DB integration is implemented
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
-
-- make "all tests passed" in ci green and pretty

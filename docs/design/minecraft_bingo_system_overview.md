@@ -47,7 +47,7 @@ The **host** is always the player who created the match (slot 1). Host status ca
 
 ### 2.4 Post-Match Actions
 
-- **Rematch (host only):** Transition from Completed directly back to InProgress with the same seed and board layout, resetting all marks and the timer. This allows immediate rematches without returning to the lobby.
+- **Rematch (host only):** Transition from Completed directly back to InProgress with a fresh board generated from a new seed, resetting all marks and the timer. This allows immediate rematches without returning to the lobby.
 
 ### 2.5 Server vs Client Responsibilities
 
@@ -189,7 +189,7 @@ The persisted `MatchState` snapshot (board seed/goals, marks/ownership, timer an
 | `StartMatch` | Lobby | InProgress | Both players present and ready. Host-only. |
 | `PlayerWin` | InProgress | Completed | Line completion, majority, or timer expiry detected by server. |
 | `BackToLobby` | InProgress / Completed | Lobby | Host-only. Resets marks, timer, and ready states. Board seed is preserved. |
-| `Rematch` | Completed | InProgress | Host initiates. Same seed, marks reset, timer reset. Both players must be connected. |
+| `Rematch` | Completed | InProgress | Host initiates. New seed and board generated, marks reset, timer reset. Both players must be connected. |
 | `PlayerLeave` (all players) | Any | Abandoned | Both players have disconnected. 10-minute destruction timer begins. |
 | `PlayerJoin` | Abandoned | Lobby | Player re-joins before the 10-minute timeout. Match rehydrates to Lobby state with ready states reset. |
 
@@ -319,7 +319,7 @@ REST is used for match creation, joining, and initial hydration. WebSockets are 
 | `UNMARK_CELL` | `{ cellIndex: number }` | Unmark a cell (ownership enforced server-side) |
 | `RESHUFFLE_BOARD` | — | Host-only; only allowed if no cells are marked. Generates new seed, resets timer. |
 | `BACK_TO_LOBBY` | — | Host-only; allowed from InProgress or Completed. Resets marks, timer, and ready states. |
-| `REMATCH` | — | Host-only; only from Completed state. Same seed, resets marks and timer. |
+| `REMATCH` | — | Host-only; only from Completed state. Generates new seed and board, resets marks and timer. |
 
 ### 9.6 Server → Client Messages
 

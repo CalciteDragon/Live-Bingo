@@ -75,6 +75,13 @@ const backToLobby = (clientId = HOST_CLIENT): ClientMessage =>
 const rematch = (clientId = HOST_CLIENT): ClientMessage =>
   ({ ...BASE, type: 'REMATCH', clientId, payload: {} });
 
+const setLobbySettings = (
+  timerMode: 'stopwatch' | 'countdown',
+  countdownDurationMs?: number,
+  clientId = HOST_CLIENT,
+): ClientMessage =>
+  ({ ...BASE, type: 'SET_LOBBY_SETTINGS', clientId, payload: { timerMode, countdownDurationMs } });
+
 // ---------------------------------------------------------------------------
 // Error assertion helper
 // ---------------------------------------------------------------------------
@@ -115,6 +122,33 @@ describe('validateEvent', () => {
       expectEngineError(
         () => validateEvent(makeState({ status: 'InProgress' }), setReady(true)),
         'INVALID_STATE',
+      );
+    });
+  });
+
+  describe('SET_LOBBY_SETTINGS', () => {
+    it('passes for host in Lobby', () => {
+      expect(() => validateEvent(makeState(), setLobbySettings('stopwatch'))).not.toThrow();
+    });
+    it('passes for countdown with duration', () => {
+      expect(() => validateEvent(makeState(), setLobbySettings('countdown', 300000))).not.toThrow();
+    });
+    it('throws INVALID_STATE when not in Lobby', () => {
+      expectEngineError(
+        () => validateEvent(makeState({ status: 'InProgress' }), setLobbySettings('stopwatch')),
+        'INVALID_STATE',
+      );
+    });
+    it('throws NOT_AUTHORIZED for guest', () => {
+      expectEngineError(
+        () => validateEvent(makeState(), setLobbySettings('stopwatch', undefined, GUEST_CLIENT)),
+        'NOT_AUTHORIZED',
+      );
+    });
+    it('throws INVALID_EVENT for countdown without duration', () => {
+      expectEngineError(
+        () => validateEvent(makeState(), setLobbySettings('countdown')),
+        'INVALID_EVENT',
       );
     });
   });
@@ -276,6 +310,29 @@ describe('validateEvent', () => {
 // ---------------------------------------------------------------------------
 
 describe('applyEvent', () => {
+  it('SET_LOBBY_SETTINGS — updates lobbySettings and timer mode to stopwatch', () => {
+    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300000 } });
+    const next = applyEvent(state, setLobbySettings('stopwatch'));
+    expect(next.lobbySettings).toEqual({ timerMode: 'stopwatch', countdownDurationMs: null });
+    expect(next.timer.mode).toBe('stopwatch');
+    expect(next.timer.countdownDurationMs).toBeNull();
+  });
+
+  it('SET_LOBBY_SETTINGS — updates lobbySettings and timer mode to countdown', () => {
+    const next = applyEvent(makeState(), setLobbySettings('countdown', 600000));
+    expect(next.lobbySettings).toEqual({ timerMode: 'countdown', countdownDurationMs: 600000 });
+    expect(next.timer.mode).toBe('countdown');
+    expect(next.timer.countdownDurationMs).toBe(600000);
+  });
+
+  it('SET_LOBBY_SETTINGS — does not affect other state', () => {
+    const state = makeState({ readyStates: { [HOST_ID]: true } });
+    const next = applyEvent(state, setLobbySettings('stopwatch'));
+    expect(next.readyStates).toEqual(state.readyStates);
+    expect(next.players).toEqual(state.players);
+    expect(next.card).toEqual(state.card);
+  });
+
   it('SET_READY — updates ready state for caller; other states unchanged', () => {
     const state = makeState({
       readyStates: { [GUEST_ID]: true },
@@ -398,10 +455,21 @@ describe('applyEvent', () => {
     expect(next.result).toBeNull();
   });
 
-  it('REMATCH — card seed unchanged', () => {
+  it('REMATCH — uses ctx.newCard when provided', () => {
+    const newCard = makeCard({ seed: 999 });
     const state = makeState({ status: 'Completed', card: makeCard({ seed: 55 }) });
+    const next = applyEvent(state, rematch(), { nowIso: '2024-01-01T00:00:00Z', newCard });
+    expect(next.card).toEqual(newCard);
+  });
+
+  it('REMATCH — falls back to clearing marks on existing card when ctx.newCard not provided', () => {
+    const cells = Array.from({ length: 25 }, (_, i) =>
+      makeCell(i, i < 5 ? HOST_ID : null),
+    );
+    const state = makeState({ status: 'Completed', card: makeCard({ seed: 55, cells }) });
     const next = applyEvent(state, rematch(), { nowIso: '2024-01-01T00:00:00Z' });
     expect(next.card.seed).toBe(55);
+    expect(next.card.cells.every((c) => c.markedBy === null)).toBe(true);
   });
 
   it('input state is never mutated', () => {
