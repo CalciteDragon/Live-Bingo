@@ -4,7 +4,7 @@ import type { WebSocketServer } from 'ws';
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import { ClientMessageSchema } from '@bingo/shared';
-import type { ServerMessage } from '@bingo/shared';
+import type { ServerMessage, MatchResult } from '@bingo/shared';
 import { validateEvent, applyEvent, checkWin, EngineError, generateBoard } from '@bingo/engine';
 import { db } from '../db/index.js';
 import {
@@ -17,6 +17,68 @@ import {
 } from '../match-registry.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Schedules (or reschedules) the countdown timer for a match.
+ * Called from processMessage after START_MATCH/RESHUFFLE_BOARD/REMATCH,
+ * and from startup hydration in src/index.ts.
+ */
+export function scheduleCountdownTimer(matchId: string, remainingMs: number): void {
+  const entry = getMatch(matchId);
+  if (!entry) return;
+  if (entry.countdownTimer) {
+    clearTimeout(entry.countdownTimer);
+    entry.countdownTimer = undefined;
+  }
+  entry.countdownTimer = setTimeout(
+    () => expireCountdown(matchId).catch((err) => console.error('[ws] expireCountdown failed:', err)),
+    Math.max(0, remainingMs),
+  );
+}
+
+/**
+ * Fires when the countdown reaches zero. Evaluates win-by-time and completes the match.
+ * Exits silently if the match was already completed by another means.
+ */
+async function expireCountdown(matchId: string): Promise<void> {
+  const entry = getMatch(matchId);
+  if (!entry || entry.state.status !== 'InProgress') return;
+
+  entry.countdownTimer = undefined;
+
+  // Count marked cells per player (always exactly 2 players)
+  const [p1, p2] = entry.state.players;
+  const count = (playerId: string) =>
+    entry.state.card.cells.filter(c => c.markedBy === playerId).length;
+  const c1 = count(p1!.playerId);
+  const c2 = count(p2!.playerId);
+
+  let winnerId: string | null;
+  if (c1 > c2)       winnerId = p1!.playerId;
+  else if (c2 > c1)  winnerId = p2!.playerId;
+  else               winnerId = null; // draw
+
+  const result: MatchResult = { winnerId, reason: 'timer_expiry' };
+  const newState = { ...entry.state, status: 'Completed' as const, result };
+
+  await db.query(
+    'UPDATE matches SET state_json = $1, status = $2, ended_at = NOW() WHERE match_id = $3',
+    [JSON.stringify(newState), 'Completed', matchId],
+  );
+
+  setMatch(matchId, { ...entry, state: newState });
+
+  broadcastToMatch(matchId, {
+    type: 'STATE_UPDATE',
+    matchId,
+    payload: { state: newState },
+  });
+  broadcastToMatch(matchId, {
+    type: 'MATCH_COMPLETED',
+    matchId,
+    payload: { reason: result.reason, winnerId: result.winnerId },
+  });
+}
 
 function sendTo(ws: WebSocket, message: ServerMessage): void {
   if (ws.readyState === WebSocket.OPEN) {
@@ -275,7 +337,29 @@ async function processMessage(
     });
   }
 
-  // TODO (Phase 5): cancel/start countdown timer based on event type and timer mode
+  // 14. Manage countdown timer
+  const timerEntry = getMatch(matchId);
+  if (timerEntry) {
+    // Cancel the running timer on events that end or reset the match
+    if (winResult || message.type === 'BACK_TO_LOBBY' || message.type === 'RESHUFFLE_BOARD' || message.type === 'REMATCH') {
+      if (timerEntry.countdownTimer) {
+        clearTimeout(timerEntry.countdownTimer);
+        timerEntry.countdownTimer = undefined;
+      }
+    }
+    // Start or restart the countdown when a countdown match enters InProgress
+    if (
+      newState.status === 'InProgress' &&
+      newState.timer.mode === 'countdown' &&
+      newState.timer.countdownDurationMs !== null &&
+      (message.type === 'START_MATCH' || message.type === 'RESHUFFLE_BOARD' || message.type === 'REMATCH')
+    ) {
+      timerEntry.countdownTimer = setTimeout(
+        () => expireCountdown(matchId).catch((err) => console.error('[ws] expireCountdown failed:', err)),
+        newState.timer.countdownDurationMs,
+      );
+    }
+  }
 }
 
 async function handleDisconnect(ws: WebSocket, matchId: string, clientId: string): Promise<void> {
@@ -288,13 +372,20 @@ async function handleDisconnect(ws: WebSocket, matchId: string, clientId: string
   const entry = getMatch(matchId);
   if (!entry) return;
 
-  // 2. Mark player disconnected (pure state update)
-  const updatedState = {
+  // 2. Mark player disconnected; reset their ready state in Lobby (design spec §6.4)
+  const disconnectedPlayer = entry.state.players.find(p => p.clientId === clientId);
+  let updatedState = {
     ...entry.state,
     players: entry.state.players.map((p) =>
       p.clientId === clientId ? { ...p, connected: false } : p,
     ),
   };
+  if (entry.state.status === 'Lobby' && disconnectedPlayer) {
+    updatedState = {
+      ...updatedState,
+      readyStates: { ...updatedState.readyStates, [disconnectedPlayer.playerId]: false },
+    };
+  }
 
   // 3. Persist
   await db.query('UPDATE matches SET state_json = $1 WHERE match_id = $2', [
@@ -324,6 +415,12 @@ async function handleDisconnect(ws: WebSocket, matchId: string, clientId: string
 async function abandonMatch(matchId: string): Promise<void> {
   const entry = getMatch(matchId);
   if (!entry) return;
+
+  // Cancel a running countdown timer before evicting the match
+  if (entry.countdownTimer) {
+    clearTimeout(entry.countdownTimer);
+    entry.countdownTimer = undefined;
+  }
 
   const abandonedState = { ...entry.state, status: 'Abandoned' as const };
   await db.query(

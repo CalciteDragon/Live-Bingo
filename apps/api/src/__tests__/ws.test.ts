@@ -9,7 +9,7 @@ vi.mock('../db/index.js', () => ({
 }));
 
 import { db } from '../db/index.js';
-import { handleUpgrade } from '../ws/index.js';
+import { handleUpgrade, scheduleCountdownTimer } from '../ws/index.js';
 import { getMatch, setMatch, deleteMatch } from '../match-registry.js';
 import type { MatchState } from '@bingo/shared';
 
@@ -554,10 +554,73 @@ describe('processMessage — accepted events', () => {
     expect(state.lobbySettings.countdownDurationMs).toBe(600000);
   });
 
-  // Stub: countdown timer lifecycle is Phase 5
-  it.todo('START_MATCH in countdown mode: starts countdownTimer on MatchEntry');
-  it.todo('BACK_TO_LOBBY cancels the active countdownTimer');
-  it.todo('REMATCH in countdown mode: cancels old timer and starts a new one');
+  it('START_MATCH in countdown mode: sets countdownTimer on MatchEntry', async () => {
+    vi.useFakeTimers();
+    const DURATION = 600_000;
+    setMatch(MATCH_ID, {
+      state: makeTwoPlayerLobbyState({
+        readyStates: { [HOST_PLAYER_ID]: true, [GUEST_PLAYER_ID]: true },
+        lobbySettings: { timerMode: 'countdown', countdownDurationMs: DURATION },
+        timer: { mode: 'countdown', startedAt: null, countdownDurationMs: DURATION },
+      }),
+      sockets: new Map(),
+    });
+    await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+
+    expect(getMatch(MATCH_ID)!.countdownTimer).toBeUndefined();
+
+    const ws = getMatch(MATCH_ID)!.sockets.get(HOST_CLIENT_ID) as unknown as MockWebSocket;
+    ws.send.mockClear();
+    ws.receive({ type: 'START_MATCH', matchId: MATCH_ID, clientId: HOST_CLIENT_ID, eventId: '00000000-0000-0000-0000-000000000060', payload: {} });
+    await flush();
+
+    expect(getMatch(MATCH_ID)!.countdownTimer).toBeDefined();
+  });
+
+  it('BACK_TO_LOBBY cancels the active countdownTimer', async () => {
+    vi.useFakeTimers();
+    setMatch(MATCH_ID, { state: makeInProgressState(), sockets: new Map() });
+    await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+
+    // Plant a fake timer directly to simulate a running countdown
+    const entry = getMatch(MATCH_ID)!;
+    entry.countdownTimer = setTimeout(() => {}, 999_999);
+
+    const ws = getMatch(MATCH_ID)!.sockets.get(HOST_CLIENT_ID) as unknown as MockWebSocket;
+    ws.send.mockClear();
+    ws.receive({ type: 'BACK_TO_LOBBY', matchId: MATCH_ID, clientId: HOST_CLIENT_ID, eventId: '00000000-0000-0000-0000-000000000061', payload: {} });
+    await flush();
+
+    expect(getMatch(MATCH_ID)!.countdownTimer).toBeUndefined();
+  });
+
+  it('REMATCH in countdown mode: starts a new countdownTimer', async () => {
+    vi.useFakeTimers();
+    const DURATION = 300_000;
+    setMatch(MATCH_ID, {
+      state: makeTwoPlayerLobbyState({
+        status: 'Completed',
+        result: { winnerId: HOST_PLAYER_ID, reason: 'line' },
+        lobbySettings: { timerMode: 'countdown', countdownDurationMs: DURATION },
+        timer: { mode: 'countdown', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: DURATION },
+      }),
+      sockets: new Map(),
+    });
+    await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+
+    expect(getMatch(MATCH_ID)!.countdownTimer).toBeUndefined();
+
+    const ws = getMatch(MATCH_ID)!.sockets.get(HOST_CLIENT_ID) as unknown as MockWebSocket;
+    ws.send.mockClear();
+    ws.receive({ type: 'REMATCH', matchId: MATCH_ID, clientId: HOST_CLIENT_ID, eventId: '00000000-0000-0000-0000-000000000062', payload: {} });
+    await flush();
+
+    expect(getMatch(MATCH_ID)!.countdownTimer).toBeDefined();
+    expect(getMatch(MATCH_ID)!.state.status).toBe('InProgress');
+  });
 });
 
 // =============================================================================
@@ -636,6 +699,75 @@ describe('handleDisconnect', () => {
     expect(presence).toBeDefined();
     expect(presence.payload.players.find((p: any) => p.clientId === HOST_CLIENT_ID).connected).toBe(false);
   });
+
+  it('resets the disconnecting player readyState when match is in Lobby', async () => {
+    setMatch(MATCH_ID, {
+      state: makeTwoPlayerLobbyState({
+        readyStates: { [HOST_PLAYER_ID]: true, [GUEST_PLAYER_ID]: true },
+      }),
+      sockets: new Map(),
+    });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+
+    hostWs.emit('close');
+    await flush();
+
+    expect(getMatch(MATCH_ID)!.state.readyStates[HOST_PLAYER_ID]).toBe(false);
+    // Guest ready state should be unaffected
+    expect(getMatch(MATCH_ID)!.state.readyStates[GUEST_PLAYER_ID]).toBe(true);
+  });
+
+  it('does not reset readyStates when match is InProgress', async () => {
+    const initialReadyStates = { [HOST_PLAYER_ID]: true, [GUEST_PLAYER_ID]: true };
+    setMatch(MATCH_ID, {
+      state: makeInProgressState({ readyStates: initialReadyStates }),
+      sockets: new Map(),
+    });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+
+    hostWs.emit('close');
+    await flush();
+
+    // readyStates must remain intact during an active match
+    expect(getMatch(MATCH_ID)!.state.readyStates[HOST_PLAYER_ID]).toBe(true);
+  });
+
+  it('cancels the countdown timer when abandon fires', async () => {
+    vi.useFakeTimers();
+    const ABANDON_MS = 10 * 60 * 1000; // mirrors hardcoded value in handleDisconnect
+    const COUNTDOWN_MS = ABANDON_MS + 5_000; // longer so abandon fires first
+    setMatch(MATCH_ID, {
+      state: makeInProgressState({
+        timer: { mode: 'countdown', startedAt: new Date().toISOString(), countdownDurationMs: COUNTDOWN_MS },
+      }),
+      sockets: new Map(),
+    });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    const guestWs = await connectClient(GUEST_CLIENT_ID);
+
+    // Plant a countdown timer to verify it gets cancelled by abandonMatch
+    const entry = getMatch(MATCH_ID)!;
+    const countdownSpy = vi.fn();
+    entry.countdownTimer = setTimeout(countdownSpy, COUNTDOWN_MS) as unknown as NodeJS.Timeout;
+
+    // Both disconnect → abandon timer arms
+    hostWs.emit('close');
+    await flush();
+    guestWs.emit('close');
+    await flush();
+
+    vi.clearAllMocks();
+    (db as any).query.mockResolvedValue({ rows: [] });
+
+    // Advance exactly to the abandon timer — abandonMatch cancels the countdown before it fires
+    await vi.advanceTimersByTimeAsync(ABANDON_MS);
+    await flush();
+
+    expect(countdownSpy).not.toHaveBeenCalled();
+    expect(getMatch(MATCH_ID)).toBeUndefined();
+  });
 });
 
 // =============================================================================
@@ -669,5 +801,160 @@ describe('abandonMatch (triggered by abandon timer)', () => {
       expect.arrayContaining(['Abandoned', MATCH_ID]),
     );
     expect(getMatch(MATCH_ID)).toBeUndefined();
+  });
+});
+
+// =============================================================================
+// expireCountdown — win-by-time logic (via scheduleCountdownTimer)
+// =============================================================================
+
+describe('expireCountdown (via scheduleCountdownTimer)', () => {
+  const DURATION = 600_000;
+
+  function makeCountdownInProgressState(hostCells: number, guestCells: number): MatchState {
+    const cells = BLANK_CELLS.map((c, i) => {
+      if (i < hostCells)               return { ...c, markedBy: HOST_PLAYER_ID };
+      if (i < hostCells + guestCells)  return { ...c, markedBy: GUEST_PLAYER_ID };
+      return { ...c };
+    });
+    return makeInProgressState({
+      card: { seed: 1, cells },
+      timer: { mode: 'countdown', startedAt: new Date().toISOString(), countdownDurationMs: DURATION },
+    });
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  it('host wins when they have more marked cells at expiry', async () => {
+    setMatch(MATCH_ID, { state: makeCountdownInProgressState(5, 2), sockets: new Map() });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+    hostWs.send.mockClear();
+
+    scheduleCountdownTimer(MATCH_ID, DURATION);
+    await vi.runAllTimersAsync();
+    await flush();
+
+    const state = getMatch(MATCH_ID)!.state;
+    expect(state.status).toBe('Completed');
+    expect(state.result?.reason).toBe('timer_expiry');
+    expect(state.result?.winnerId).toBe(HOST_PLAYER_ID);
+
+    const msgs = hostWs.sent() as any[];
+    expect(msgs.find(m => m.type === 'STATE_UPDATE')?.payload.state.status).toBe('Completed');
+    expect(msgs.find(m => m.type === 'MATCH_COMPLETED')?.payload.reason).toBe('timer_expiry');
+    expect(msgs.find(m => m.type === 'MATCH_COMPLETED')?.payload.winnerId).toBe(HOST_PLAYER_ID);
+  });
+
+  it('guest wins when they have more marked cells at expiry', async () => {
+    setMatch(MATCH_ID, { state: makeCountdownInProgressState(1, 8), sockets: new Map() });
+    await connectClient(HOST_CLIENT_ID);
+    const guestWs = await connectClient(GUEST_CLIENT_ID);
+    guestWs.send.mockClear();
+
+    scheduleCountdownTimer(MATCH_ID, DURATION);
+    await vi.runAllTimersAsync();
+    await flush();
+
+    expect(getMatch(MATCH_ID)!.state.result?.winnerId).toBe(GUEST_PLAYER_ID);
+  });
+
+  it('results in a draw when both players have equal cell counts at expiry', async () => {
+    setMatch(MATCH_ID, { state: makeCountdownInProgressState(3, 3), sockets: new Map() });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+    hostWs.send.mockClear();
+
+    scheduleCountdownTimer(MATCH_ID, DURATION);
+    await vi.runAllTimersAsync();
+    await flush();
+
+    const state = getMatch(MATCH_ID)!.state;
+    expect(state.result?.reason).toBe('timer_expiry');
+    expect(state.result?.winnerId).toBeNull();
+
+    const completed = (hostWs.sent() as any[]).find(m => m.type === 'MATCH_COMPLETED');
+    expect(completed?.payload.winnerId).toBeNull();
+  });
+
+  it('results in a draw when no cells are marked at expiry', async () => {
+    setMatch(MATCH_ID, { state: makeCountdownInProgressState(0, 0), sockets: new Map() });
+    await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+
+    scheduleCountdownTimer(MATCH_ID, DURATION);
+    await vi.runAllTimersAsync();
+    await flush();
+
+    expect(getMatch(MATCH_ID)!.state.result?.winnerId).toBeNull();
+  });
+
+  it('is a no-op when the match is already Completed before the timer fires', async () => {
+    setMatch(MATCH_ID, { state: makeCountdownInProgressState(5, 0), sockets: new Map() });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+
+    scheduleCountdownTimer(MATCH_ID, DURATION);
+
+    // Manually complete the match before the timer fires
+    const entry = getMatch(MATCH_ID)!;
+    setMatch(MATCH_ID, {
+      ...entry,
+      state: { ...entry.state, status: 'Completed', result: { winnerId: HOST_PLAYER_ID, reason: 'line' } },
+    });
+
+    hostWs.send.mockClear();
+    vi.clearAllMocks();
+    (db as any).query.mockResolvedValue({ rows: [] });
+
+    await vi.runAllTimersAsync();
+    await flush();
+
+    // expireCountdown exits early — no DB call, no broadcast
+    expect(db.query).not.toHaveBeenCalled();
+    expect(hostWs.send).not.toHaveBeenCalled();
+  });
+
+  it('MARK_CELL completing a line cancels the running countdown timer', async () => {
+    const cellsNearWin = BLANK_CELLS.map(c =>
+      [4, 9, 14, 19].includes(c.index) ? { ...c, markedBy: HOST_PLAYER_ID } : { ...c },
+    );
+    setMatch(MATCH_ID, {
+      state: makeInProgressState({
+        card: { seed: 1, cells: cellsNearWin },
+        timer: { mode: 'countdown', startedAt: new Date().toISOString(), countdownDurationMs: DURATION },
+      }),
+      sockets: new Map(),
+    });
+
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+
+    // Arm a countdown timer on the entry
+    const entry = getMatch(MATCH_ID)!;
+    const expirySpy = vi.fn();
+    entry.countdownTimer = setTimeout(expirySpy, DURATION) as unknown as NodeJS.Timeout;
+
+    hostWs.send.mockClear();
+    (db as any).connect.mockResolvedValue(makeTransactionClient());
+
+    hostWs.receive({
+      type: 'MARK_CELL',
+      matchId: MATCH_ID,
+      clientId: HOST_CLIENT_ID,
+      eventId: '00000000-0000-0000-0000-000000000070',
+      payload: { cellIndex: 24 },
+    });
+    await flush();
+
+    // Match is Completed by line win → countdown timer must be cleared
+    expect(getMatch(MATCH_ID)!.state.status).toBe('Completed');
+    expect(getMatch(MATCH_ID)!.countdownTimer).toBeUndefined();
+
+    // Advance the full duration — expiry callback must NOT fire
+    await vi.advanceTimersByTimeAsync(DURATION);
+    expect(expirySpy).not.toHaveBeenCalled();
   });
 });
