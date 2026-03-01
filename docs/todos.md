@@ -6,14 +6,10 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/api`
 
-- [ ] Implement WebSocket intent routing in `src/ws/index.ts` (route parsed `ClientMessage` to handlers)
-- [ ] Implement disconnect / presence update handling in `src/ws/index.ts`
-- [ ] Send typed `ERROR` message back to client on invalid WebSocket message
-- [ ] Implement match persistence (write `state_json` after every accepted event)
-- [ ] Implement at-most-once `eventId` deduplication
-- [ ] Implement 10-minute abandoned match cleanup
-- [ ] Reschedule countdown timers on startup hydration (Phase 5)
-- [ ] Write sanity integration tests for API endpoints and WebSocket handlers
+- [ ] Implement countdown timer expiry (`expireCountdown`) and timer lifecycle management (Phase 5) in `src/ws/index.ts`
+- [ ] Reschedule countdown timers on startup hydration (Phase 5) in `src/index.ts`
+- [ ] Write integration tests for API endpoints and WebSocket handlers against a real Postgres instance (unit tests with mocked DB already exist) (make sure this is in a seperate command from npm run ci)
+- [ ] Harden idempotency and ACID behavior across in-memory registry and Postgres persistence paths
 
 ## `packages/shared`
 
@@ -25,9 +21,9 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/web`
 
-- [ ] Implement Home page component — collect alias (pre-filled random name) before creating/joining
+- [ ] Implement Home page component — collect alias (pre-filled random name) before creating/joining; support joining via join code alone (no full URL required)
 - [ ] Implement Lobby page component — show timer mode, allow host to configure countdown duration; display board seed; allow host to set a custom seed
-- [ ] Implement Match page component
+- [ ] Implement Match page component — on page refresh, re-hit `GET /matches/:id` for initial state, then reconnect WebSocket to `ws://api/ws?matchId=xxx&clientId=xxx`; server sends `STATE_SYNC` on connect
 - [ ] Implement Results page component
 - [ ] Write unit tests for page components
 
@@ -36,6 +32,3 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Add Postgres service to `test-api` job once DB integration is implemented
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
-
-- add join via just join code from home page (without needing to paste a full URL)
-- what is the reconnection flow for a player? if a client page refreshes do they need to hit the get endpoint again?

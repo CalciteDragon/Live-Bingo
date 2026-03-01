@@ -10,7 +10,7 @@ import type {
 } from '@bingo/shared';
 import { CreateMatchBodySchema, JoinMatchBodySchema } from '@bingo/shared';
 import { db } from '../db/index.js';
-import { getMatch, setMatch, broadcastToMatch } from '../match-registry.js';
+import { getMatch, setMatch } from '../match-registry.js';
 import { clientIdMiddleware } from '../middleware/client-id.js';
 
 export const matchRouter = Router();
@@ -148,7 +148,6 @@ matchRouter.post('/:id/join', async (req, res) => {
   }
 
   setMatch(matchId, { ...(entry ?? { sockets: new Map() }), state: updatedState });
-  broadcastToMatch(matchId, { type: 'PRESENCE_UPDATE', matchId, payload: { players: updatedState.players } });
 
   const response: JoinMatchResponse = { matchId, playerId, state: updatedState };
   res.status(200).json(response);

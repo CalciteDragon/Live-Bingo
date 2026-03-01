@@ -36,6 +36,19 @@ export function removeSocket(matchId: string, clientId: string): void {
   }
 }
 
+export function removeSocketIfCurrent(matchId: string, clientId: string, ws: WebSocket): boolean {
+  const entry = registry.get(matchId);
+  if (!entry) return false;
+
+  const currentSocket = entry.sockets.get(clientId);
+  if (currentSocket !== ws) {
+    return false;
+  }
+
+  entry.sockets.delete(clientId);
+  return true;
+}
+
 function sendTo(ws: WebSocket, message: ServerMessage): void {
   if (ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify(message));

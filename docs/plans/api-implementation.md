@@ -234,7 +234,7 @@ Iterate `entry.sockets.values()`, call `sendTo` for each.
 
 ---
 
-## Phase 5: Countdown Timer Expiry *(deferred if not in scope)*
+## Phase 5: Countdown Timer Expiry
 
 **Goal**: Countdown matches auto-complete when time elapses.
 
