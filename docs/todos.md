@@ -19,11 +19,15 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/web`
 
-- [ ] Implement Home page component — collect alias (pre-filled random name) before creating/joining; support joining via join code alone (no full URL required)
-- [ ] Implement Lobby page component — show timer mode, allow host to configure countdown duration; display board seed; allow host to set a custom seed
-- [ ] Implement Match page component — on page refresh, re-hit `GET /matches/:id` for initial state, then reconnect WebSocket to `ws://api/ws?matchId=xxx&clientId=xxx`; server sends `STATE_SYNC` on connect
-- [ ] Implement Results page component
-- [ ] Write unit tests for page components
+- [ ] Implement Home page create/join flows with persisted alias, join-code entry, and abandoned/forbidden banners
+- [ ] Implement `JoinComponent` for `/join/:code` with resolve-then-join flow and inline error states
+- [ ] Implement `sessionGuard` hydration for `/lobby/:matchId` and `/match/:matchId` (allow refresh/new-tab restore for same `clientId`)
+- [ ] Implement Lobby page component — show players/ready state, host timer settings, start flow, copy invite link, seed display (read-only)
+- [ ] Implement Match page component with 5x5 board, timer, host controls, and in-page results overlay (no separate results route)
+- [ ] Add reconnect status UI + HTTP error hardening for Home/Join + alias client validation
+- [ ] Write unit tests for core services and page components per `docs/plans/angular-client-phases.md`
+- [ ] Defer custom lobby seed input (keep seed display read-only for MVP)
+- [ ] Make the board reshuffle also reset the match timer
 
 ## CI
 
