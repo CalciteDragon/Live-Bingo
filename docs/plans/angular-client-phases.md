@@ -84,7 +84,7 @@ The backend is fully implemented and tested (REST, WebSocket, engine, DB). The A
    - `saveAlias(alias: string): void` — persists to localStorage and updates the signal
 
 10. **`match.helpers.ts`** (`src/app/core/match.helpers.ts`) — pure functions (not injectable):
-    - `getMyPlayer(state, playerId)`, `isHost(state, playerId)`, `isBothPlayersReady(state)`
+    - `getMyPlayer(state, playerId)`, `isHost(state, playerId)`, `isAllPlayersReady(state)`
     - `buildClientMessage(type, matchId, clientId, payload)` — generates `eventId` via `crypto.randomUUID()` internally
 
 ### Tests
@@ -181,7 +181,7 @@ The Join page does **not** show an alias field. It reads `SessionStoreService.al
      players   = computed(() => state()?.players ?? [])
      myReady   = computed(() => state()?.readyStates[playerId()] ?? false)
      amHost    = computed(() => isHost(state()!, playerId()!))
-     canStart  = computed(() => amHost() && isBothPlayersReady(state()!))
+     canStart  = computed(() => amHost() && isAllPlayersReady(state()!))
      timerMode = computed(() => state()?.lobbySettings.timerMode ?? 'stopwatch')
      ```
    - Ready toggle → `SET_READY`

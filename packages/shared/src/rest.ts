@@ -43,3 +43,7 @@ export interface GetMatchResponse {
   playerId: string;
   state: MatchState;
 }
+
+export interface ResolveJoinCodeResponse {
+  matchId: string;
+}

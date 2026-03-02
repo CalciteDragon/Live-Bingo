@@ -17,15 +17,19 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 <!-- all engine functions implemented and tested -->
 
+## `apps/api`
+
+- [ ] Add `GET /matches/by-code/:code` endpoint that resolves a join code to a `matchId` (prerequisite for Phase 2 web client join flow)
+
 ## `apps/web`
 
-- [ ] Implement Home page create/join flows with persisted alias, join-code entry, and abandoned/forbidden banners
-- [ ] Implement `JoinComponent` for `/join/:code` with resolve-then-join flow and inline error states
-- [ ] Implement `sessionGuard` hydration for `/lobby/:matchId` and `/match/:matchId` (allow refresh/new-tab restore for same `clientId`)
-- [ ] Implement Lobby page component — show players/ready state, host timer settings, start flow, copy invite link, seed display (read-only)
-- [ ] Implement Match page component with 5x5 board, timer, host controls, and in-page results overlay (no separate results route)
-- [ ] Add reconnect status UI + HTTP error hardening for Home/Join + alias client validation
-- [ ] Write unit tests for core services and page components per `docs/plans/angular-client-phases.md`
+- [ ] Implement Home page create/join flows with persisted alias, join-code entry, and abandoned/forbidden banners (Phase 2)
+- [ ] Implement `JoinComponent` for `/join/:code` with resolve-then-join flow and inline error states (Phase 2)
+- [ ] Implement `sessionGuard` hydration for `/lobby/:matchId` and `/match/:matchId` (allow refresh/new-tab restore for same `clientId`) (Phase 2)
+- [ ] Implement Lobby page component — show players/ready state, host timer settings, start flow, copy invite link, seed display (read-only) (Phase 3)
+- [ ] Implement Match page component with 5x5 board, timer, host controls, and in-page results overlay (no separate results route) (Phase 4)
+- [ ] Add reconnect status UI + HTTP error hardening for Home/Join + alias client validation (Phase 6)
+- [ ] Delete the `ResultsComponent` stub (`src/app/pages/results/`) and its directory (Phase 5)
 - [ ] Defer custom lobby seed input (keep seed display read-only for MVP)
 - [ ] Make the board reshuffle also reset the match timer
 

@@ -6,15 +6,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/home/home').then(m => m.HomeComponent),
   },
   {
-    path: 'lobby/:id',
+    path: 'lobby/:matchId',
     loadComponent: () => import('./pages/lobby/lobby').then(m => m.LobbyComponent),
   },
   {
-    path: 'match/:id',
+    path: 'match/:matchId',
     loadComponent: () => import('./pages/match/match').then(m => m.MatchComponent),
-  },
-  {
-    path: 'results/:id',
-    loadComponent: () => import('./pages/results/results').then(m => m.ResultsComponent),
   },
 ];
