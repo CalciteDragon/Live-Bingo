@@ -149,6 +149,10 @@ The Join page does **not** show an alias field. It reads `SessionStoreService.al
    - `sessionGuard` owns participant validation and session hydration only.
    - `state.status` from `STATE_SYNC`/`STATE_UPDATE` is the canonical navigation source. `MATCH_STARTED`, `MATCH_COMPLETED` etc. are delivery hints only. Pages navigate based on `state.status`, not on receiving a specific lifecycle message type.
    - Every page component must implement a status-route `effect()` so manual URL changes and browser back/forward self-correct.
+   - **Effect-only navigation rule:** All automatic navigation (post-create, post-join, post-state-update) goes through the status-route `effect()`. A subscribe/next callback must never call `router.navigate()` to route the user after a successful state transition — it only writes to `SessionStoreService` and connects the socket. `router.navigate()` is permitted in exactly two cases:
+     1. **User-initiated navigation** — e.g. the "Go to your active match" button on `CLIENT_CONFLICT`.
+     2. **Guard-style preemptive redirects** — e.g. the null-alias redirect in `JoinComponent`, or `sessionGuard`'s 403/404 redirect. These are error/precondition paths, not state transitions.
+   - Tests that verify effect-driven navigation must call `TestBed.flushEffects()` before asserting `router.navigate`.
 
 ### Tests
 - `HomeComponent`: alias loads from store, generates and saves if null, alias field triggers `saveAlias`, create flow, join-by-code flow (resolveJoinCode → joinMatch), error display, abandoned banner + session teardown
@@ -367,7 +371,7 @@ The Join page does **not** show an alias field. It reads `SessionStoreService.al
 | Subscription cleanup | `takeUntilDestroyed(this.destroyRef)` on all component subscriptions — no `Subject` + `takeUntil` pattern |
 | WebSocket scope | `MatchSocketService` is `providedIn: 'root'`. Connected once on create/join or guard hydration. Pages subscribe only; never call `connect()`/`disconnect()`. |
 | Session hydration authority | `sessionGuard` is the sole hydration point. No page component calls `getMatch()`. |
-| Navigation authority | `state.status` from `STATE_SYNC`/`STATE_UPDATE` is canonical. `MATCH_STARTED`, `MATCH_COMPLETED` etc. are delivery hints only. Every page has a status-route `effect()`. |
+| Navigation authority | All automatic navigation goes through the status-route `effect()` — subscribe callbacks write to `SessionStoreService` and connect the socket, then stop. `router.navigate()` is only called for user-initiated navigation (click handlers) and guard-style preemptive redirects (null-alias check, 403/404 guard). Tests verifying effect-driven navigation must call `TestBed.flushEffects()` before asserting. |
 | Results presentation | Results are shown as an overlay inside `MatchComponent`, not a separate route. `Completed` status does not trigger navigation — it toggles overlay visibility via `isCompleted` computed signal. The board remains visible but inactive beneath the overlay. |
 | `wsBaseUrl` format | Base host only, no path. Dev: `ws://localhost:3000`. Prod: `wss://<service>.onrender.com`. Service appends `/ws?matchId=...&clientId=...`. |
 | Alias persistence | Persisted to `localStorage` (`bingo_alias`). Shown and editable on Home page only. Other pages read from `SessionStoreService.alias()` — never prompt. |
