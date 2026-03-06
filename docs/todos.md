@@ -19,7 +19,6 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/web`
 
-- [ ] Implement Lobby page component — show players/ready state, host timer settings, start flow, copy invite link, seed display (read-only) (Phase 3)
 - [ ] Implement Match page component with 5x5 board, timer, host controls, and in-page results overlay (no separate results route) (Phase 4)
 - [ ] Add reconnect status UI + HTTP error hardening for Home/Join + alias client validation (Phase 6)
 - [ ] Add a wildcard route fallback (`**`) to handle unknown URLs (redirect to home or show a minimal Not Found page)
@@ -36,3 +35,5 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - join url checks if user is already in a match with the same ID, or if the passed in ID leads to valid *different* match before deciding to snap "recorrect" url or join a new match
 - make sure session store is cleared whenever user is not actively in a match
 - post mvp idea: navigating to other pages while in-match shows a "miniplayer" of match with easy return option
+- fix npm run dev:web
+- improve code documentation and comments
