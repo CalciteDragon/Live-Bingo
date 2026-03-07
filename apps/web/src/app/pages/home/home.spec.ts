@@ -136,13 +136,12 @@ describe('HomeComponent — query param handling', () => {
 });
 
 describe('HomeComponent — create flow', () => {
-  it('calls createMatch, writes session, connects socket; effect navigates to lobby', () => {
+  it('calls createMatch, writes session, connects socket, and navigates to lobby', () => {
     const state = makeState();
     const { comp, mockCreateMatch, mockConnect, mockNavigate, matchIdSignal, playerIdSignal, joinCodeSignal } = setup();
     mockCreateMatch.mockReturnValue(of({ matchId: 'match-1', joinCode: 'XYZ123', joinUrl: '/join/XYZ123', state }));
 
     comp.createMatch();
-    TestBed.flushEffects();
 
     expect(mockCreateMatch).toHaveBeenCalledWith('TestAlias');
     expect(matchIdSignal()).toBe('match-1');
@@ -164,7 +163,7 @@ describe('HomeComponent — create flow', () => {
 });
 
 describe('HomeComponent — join-by-code flow', () => {
-  it('resolves code then joins, writes session, connects socket; effect navigates to lobby', () => {
+  it('resolves code then joins, writes session, connects socket, and navigates to lobby', () => {
     const state = makeState({ matchId: 'match-2' });
     const { comp, mockResolveCode, mockJoinMatch, mockConnect, mockNavigate, matchIdSignal, playerIdSignal } = setup();
     mockResolveCode.mockReturnValue(of({ matchId: 'match-2' }));
@@ -172,7 +171,6 @@ describe('HomeComponent — join-by-code flow', () => {
 
     comp.joinCodeInput.set('ABCDEF');
     comp.joinByCode();
-    TestBed.flushEffects();
 
     expect(mockResolveCode).toHaveBeenCalledWith('ABCDEF');
     expect(mockJoinMatch).toHaveBeenCalledWith('match-2', 'TestAlias', 'ABCDEF');
@@ -231,46 +229,3 @@ describe('HomeComponent — join-by-code flow', () => {
   });
 });
 
-describe('HomeComponent — status-route effect', () => {
-  it('navigates to /lobby/:matchId when matchState.status is Lobby', () => {
-    const { matchStateSignal, mockNavigate } = setup();
-    matchStateSignal.set(makeState({ matchId: 'm1', status: 'Lobby' }));
-    TestBed.flushEffects();
-    expect(mockNavigate).toHaveBeenCalledWith(['/lobby', 'm1']);
-  });
-
-  it('navigates to /match/:matchId when matchState.status is InProgress', () => {
-    const { matchStateSignal, mockNavigate } = setup();
-    matchStateSignal.set(makeState({ matchId: 'm1', status: 'InProgress' }));
-    TestBed.flushEffects();
-    expect(mockNavigate).toHaveBeenCalledWith(['/match', 'm1']);
-  });
-
-  it('navigates to /match/:matchId when matchState.status is Completed', () => {
-    const { matchStateSignal, mockNavigate } = setup();
-    matchStateSignal.set(makeState({ matchId: 'm1', status: 'Completed' }));
-    TestBed.flushEffects();
-    expect(mockNavigate).toHaveBeenCalledWith(['/match', 'm1']);
-  });
-
-  it('does not navigate when matchState is null', () => {
-    const { mockNavigate } = setup();
-    TestBed.flushEffects();
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
-
-  it('does not navigate when matchState.status is Abandoned', () => {
-    const { matchStateSignal, mockNavigate } = setup();
-    matchStateSignal.set(makeState({ matchId: 'm1', status: 'Abandoned' }));
-    TestBed.flushEffects();
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
-
-  it('does not navigate after ?abandoned=true clears the session', () => {
-    // matchState was InProgress but abandoned handling clears it
-    const { matchStateSignal, mockNavigate } = setup({ abandoned: 'true' });
-    // clear() sets matchState to null — effect should not redirect
-    TestBed.flushEffects();
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
-});

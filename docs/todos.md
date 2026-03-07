@@ -33,7 +33,7 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
 
 - join url checks if user is already in a match with the same ID, or if the passed in ID leads to valid *different* match before deciding to snap "recorrect" url or join a new match
-- make sure session store is cleared whenever user is not actively in a match
+- make sure session store is cleared whenever user is not in a match (probably already the case, but want to verify)
 - post mvp idea: navigating to other pages while in-match shows a "miniplayer" of match with easy return option
-- fix npm run dev:web
 - improve code documentation and comments
+- manual scenario and integration tests

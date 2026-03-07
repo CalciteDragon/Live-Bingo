@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { createServer } from 'node:http';
 import { WebSocketServer } from 'ws';
 import { createApp } from './app.js';
-import { handleUpgrade, scheduleCountdownTimer } from './ws/index.js';
+import { handleUpgrade, scheduleCountdownTimer, scheduleAbandonTimer } from './ws/index.js';
 import { db } from './db/index.js';
 import { setMatch } from './match-registry.js';
 import type { MatchState } from '@bingo/shared';
@@ -23,6 +23,10 @@ async function start(): Promise<void> {
   );
   for (const row of rows) {
     setMatch(row.match_id, { state: row.state_json, sockets: new Map() });
+
+    // All sockets are empty on restart — start the 10-minute abandon timer immediately.
+    // It will be cancelled if a player reconnects within that window.
+    scheduleAbandonTimer(row.match_id);
 
     // Reschedule countdown timer for matches that were InProgress at the time of restart
     const { state } = { state: row.state_json };

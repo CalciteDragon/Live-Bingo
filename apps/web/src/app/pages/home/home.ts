@@ -1,4 +1,4 @@
-import { Component, effect, inject, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { switchMap, take } from 'rxjs';
 import { SessionStoreService } from '../../core/session-store.service';
@@ -96,16 +96,6 @@ export class HomeComponent {
       }
     });
 
-    // Status-route effect: self-correct navigation when the user arrives at home
-    // while an active session exists (e.g. browser back-button during a match).
-    effect(() => {
-      const s = this.sessionStore.matchState();
-      if (!s) return;
-      if (s.status === 'Lobby')      this.router.navigate(['/lobby', s.matchId]);
-      if (s.status === 'InProgress') this.router.navigate(['/match', s.matchId]);
-      if (s.status === 'Completed')  this.router.navigate(['/match', s.matchId]);
-      // 'Abandoned' stays on home — the ?abandoned=true banner handles that path.
-    });
   }
 
   onAliasChange(event: Event): void {
@@ -132,7 +122,7 @@ export class HomeComponent {
         this.sessionStore.joinCode.set(res.joinCode);
         this.sessionStore.matchState.set(res.state);
         this.socket.connect(res.matchId);
-        // Navigation is handled by the status-route effect.
+        this.router.navigate(['/lobby', res.matchId]);
       },
       error: (err: ApiError) => {
         this.loading.set(false);
@@ -162,7 +152,7 @@ export class HomeComponent {
           this.sessionStore.playerId.set(res.playerId);
           this.sessionStore.matchState.set(res.state);
           this.socket.connect(res.matchId);
-          // Navigation is handled by the status-route effect.
+          this.router.navigate(['/lobby', res.matchId]);
         },
         error: (err: ApiError) => {
           this.loading.set(false);

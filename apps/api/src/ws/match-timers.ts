@@ -99,7 +99,7 @@ export function cancelAbandonTimer(matchId: string): void {
 }
 
 /**
- * Runs the 10-minute abandon timeout: persists Abandoned state and evicts the match.
+ * Runs after the 10-minute abandon timeout: deletes the match from the database and evicts it from memory.
  */
 async function abandonMatch(matchId: string): Promise<void> {
   const entry = getMatch(matchId);
@@ -107,11 +107,7 @@ async function abandonMatch(matchId: string): Promise<void> {
 
   cancelCountdownTimer(matchId);
 
-  const abandonedState = { ...entry.state, status: 'Abandoned' as const };
-  await db.query(
-    'UPDATE matches SET status = $1, abandoned_at = NOW(), state_json = $2 WHERE match_id = $3',
-    ['Abandoned', JSON.stringify(abandonedState), matchId],
-  );
+  await db.query('DELETE FROM matches WHERE match_id = $1', [matchId]);
 
   deleteMatch(matchId);
 }
