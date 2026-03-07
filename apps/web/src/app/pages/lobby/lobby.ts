@@ -20,51 +20,66 @@ import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
   standalone: true,
   template: `
     @if (errorMessage()) {
-      <div class="banner-error">
-        {{ errorMessage() }}
-        <button (click)="errorMessage.set(null)">Dismiss</button>
+      <div class="banner banner--error">
+        <span>{{ errorMessage() }}</span>
+        <div class="banner__actions">
+          <button class="btn-ghost" (click)="errorMessage.set(null)">Dismiss</button>
+        </div>
       </div>
     }
 
-    <div class="lobby-container">
-      <h1>Lobby</h1>
+    <div class="page">
+      <div class="card">
+        <h1>Lobby</h1>
 
-      <p class="seed-display">Board seed: {{ seed() }}</p>
+        <div class="row" style="margin-bottom: 1rem">
+          <span class="text-muted">Seed</span>
+          <span class="mono">{{ seed() }}</span>
+        </div>
 
-      <div class="invite-row">
-        <button (click)="copyInviteLink()">Copy Invite Link</button>
-        @if (linkCopied()) {
-          <span class="copied-hint">Copied!</span>
-        }
-      </div>
+        <div class="row" style="margin-bottom: 1.5rem">
+          <button class="btn-secondary" (click)="copyInviteLink()">Copy Invite Link</button>
+          @if (linkCopied()) {
+            <span class="text-muted">Copied!</span>
+          }
+        </div>
 
-      <div class="players-list">
-        @for (player of players(); track player.playerId) {
-          <div class="player-row">
-            <span class="alias">{{ player.alias ?? 'Unknown' }}</span>
-            <span class="ready-state">{{ readyStates()[player.playerId] ? 'Ready' : 'Not Ready' }}</span>
-            <span class="conn-state">{{ player.connected ? 'Online' : 'Offline' }}</span>
-          </div>
-        }
-      </div>
+        <div style="margin-bottom: 1.25rem">
+          @for (player of players(); track player.playerId) {
+            <div class="player-card">
+              <span class="player-card__alias">{{ player.alias ?? 'Unknown' }}</span>
+              <span class="badge"
+                [class.badge--ready]="readyStates()[player.playerId]"
+                [class.badge--not-ready]="!readyStates()[player.playerId]">
+                {{ readyStates()[player.playerId] ? 'Ready' : 'Not Ready' }}
+              </span>
+              <span class="badge"
+                [class.badge--online]="player.connected"
+                [class.badge--offline]="!player.connected">
+                {{ player.connected ? 'Online' : 'Offline' }}
+              </span>
+            </div>
+          }
+        </div>
 
-      <button class="ready-btn" (click)="toggleReady()">
-        {{ myReady() ? 'Unready' : 'Ready Up' }}
-      </button>
+        <button class="btn-primary full-width" style="margin-bottom: 1rem" (click)="toggleReady()">
+          {{ myReady() ? 'Unready' : 'Ready Up' }}
+        </button>
 
-      @if (amHost()) {
-        <div class="host-settings">
-          <label>
-            Timer mode:
+        @if (amHost()) {
+          <hr class="divider" />
+
+          <div class="form-group">
+            <label>Timer mode</label>
             <select [value]="timerMode()" (change)="onTimerModeChange($event)">
               <option value="stopwatch">Stopwatch</option>
               <option value="countdown">Countdown</option>
             </select>
-          </label>
+          </div>
 
           @if (timerMode() === 'countdown') {
-            <label>
-              Duration (ms):
+            <div class="form-group">
+              <label>Duration (ms)</label>
               <input
                 type="number"
                 min="60000"
@@ -74,14 +89,14 @@ import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
                 (blur)="onCountdownBlur()"
                 (input)="onCountdownInput($event)"
               />
-            </label>
+            </div>
           }
 
-          <button class="start-btn" [disabled]="!canStart()" (click)="startMatch()">
+          <button class="btn-primary full-width" [disabled]="!canStart()" (click)="startMatch()">
             Start Match
           </button>
-        </div>
-      }
+        }
+      </div>
     </div>
   `,
 })

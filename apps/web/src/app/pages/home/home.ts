@@ -12,63 +12,71 @@ import type { RestErrorCode } from '@bingo/shared';
   standalone: true,
   template: `
     @if (abandonedBanner()) {
-      <div class="banner-abandoned">
-        Your match was abandoned.
-        <button (click)="abandonedBanner.set(false)">Dismiss</button>
+      <div class="banner banner--warning">
+        <span>Your match was abandoned.</span>
+        <div class="banner__actions">
+          <button class="btn-ghost" (click)="abandonedBanner.set(false)">Dismiss</button>
+        </div>
       </div>
     }
 
     @if (rejoinSession(); as session) {
-      <div class="banner-rejoin">
-        {{ session.route === '/match' ? 'A match is in progress.' : 'You were recently in a lobby.' }}
-        <button (click)="rejoin()">Rejoin</button>
-        <button (click)="dismissRejoin()">Dismiss</button>
+      <div class="banner banner--info">
+        <span>{{ session.route === '/match' ? 'A match is in progress.' : 'You were recently in a lobby.' }}</span>
+        <div class="banner__actions">
+          <button class="btn-primary" (click)="rejoin()">Rejoin</button>
+          <button class="btn-ghost" (click)="dismissRejoin()">Dismiss</button>
+        </div>
       </div>
     }
 
-    <div class="home-container">
-      <h1>Live Bingo</h1>
+    <div class="page">
+      <div class="card">
+        <h1>Live Bingo</h1>
 
-      <div class="alias-field">
-        <label for="alias">Your name</label>
-        <input
-          id="alias"
-          type="text"
-          maxlength="32"
-          [value]="sessionStore.alias() ?? ''"
-          (change)="onAliasChange($event)"
-        />
-      </div>
-
-      <div class="mode-tabs">
-        <button (click)="mode.set('create')" [class.active]="mode() === 'create'">Create Match</button>
-        <button (click)="mode.set('join')" [class.active]="mode() === 'join'">Join Match</button>
-      </div>
-
-      @if (mode() === 'create') {
-        <div class="create-section">
-          <button (click)="createMatch()" [disabled]="loading()">Create</button>
-          @if (createError()) {
-            <p class="error">{{ createError() }}</p>
-          }
-        </div>
-      }
-
-      @if (mode() === 'join') {
-        <div class="join-section">
+        <div class="form-group">
+          <label for="alias">Your name</label>
           <input
+            id="alias"
             type="text"
-            maxlength="6"
-            placeholder="Enter 6-char code"
-            [value]="joinCodeInput()"
-            (input)="onJoinCodeInput($event)"
+            maxlength="32"
+            [value]="sessionStore.alias() ?? ''"
+            (change)="onAliasChange($event)"
           />
-          <button (click)="joinByCode()" [disabled]="loading()">Join</button>
-          @if (joinError()) {
-            <p class="error">{{ joinError() }}</p>
-          }
         </div>
-      }
+
+        <div class="tabs">
+          <button (click)="mode.set('create')" [class.active]="mode() === 'create'">Create Match</button>
+          <button (click)="mode.set('join')" [class.active]="mode() === 'join'">Join Match</button>
+        </div>
+
+        @if (mode() === 'create') {
+          <button class="btn-primary full-width" (click)="createMatch()" [disabled]="loading()">
+            Create
+          </button>
+          @if (createError()) {
+            <p class="error-text">{{ createError() }}</p>
+          }
+        }
+
+        @if (mode() === 'join') {
+          <div class="form-group">
+            <input
+              type="text"
+              maxlength="6"
+              placeholder="Enter 6-char code"
+              [value]="joinCodeInput()"
+              (input)="onJoinCodeInput($event)"
+            />
+          </div>
+          <button class="btn-primary full-width" (click)="joinByCode()" [disabled]="loading()">
+            Join
+          </button>
+          @if (joinError()) {
+            <p class="error-text">{{ joinError() }}</p>
+          }
+        }
+      </div>
     </div>
   `,
 })

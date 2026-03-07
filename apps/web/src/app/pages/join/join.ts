@@ -10,14 +10,18 @@ import type { RestErrorCode } from '@bingo/shared';
   selector: 'app-join',
   standalone: true,
   template: `
-    @if (loading()) {
-      <p>Joining match...</p>
-    } @else if (error()) {
-      <p class="error">{{ error() }}</p>
-      @if (conflictMatchId()) {
-        <button (click)="navigateToMatch()">Go to your active match</button>
-      }
-    }
+    <div class="page">
+      <div class="card" style="text-align: center">
+        @if (loading()) {
+          <p class="text-muted">Joining match...</p>
+        } @else if (error()) {
+          <p class="error-text" style="margin-bottom: 1rem">{{ error() }}</p>
+          @if (conflictMatchId()) {
+            <button class="btn-primary" (click)="navigateToMatch()">Go to your active match</button>
+          }
+        }
+      </div>
+    </div>
   `,
 })
 export class JoinComponent {

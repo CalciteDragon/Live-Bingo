@@ -4,7 +4,13 @@ import { SessionStoreService } from '../../core/session-store.service';
 
 @Component({
   selector: 'app-match',
-  template: `<p>Match — stub</p>`,
+  template: `
+    <div class="page">
+      <div class="card">
+        <p class="text-muted">Match — coming soon</p>
+      </div>
+    </div>
+  `,
 })
 export class MatchComponent {
   private readonly sessionStore = inject(SessionStoreService);
