@@ -22,21 +22,27 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
   };
 }
 
-function setup(queryParams: Record<string, string> = {}, initialAlias: string | null = 'TestAlias') {
-  const aliasSignal     = signal(initialAlias);
-  const matchIdSignal   = signal<string | null>(null);
-  const playerIdSignal  = signal<string | null>(null);
-  const joinCodeSignal  = signal<string | null>(null);
+function setup(
+  queryParams: Record<string, string> = {},
+  initialAlias: string | null = 'TestAlias',
+  persistedSession: { matchId: string; route: '/lobby' | '/match' } | null = null,
+) {
+  const aliasSignal      = signal(initialAlias);
+  const matchIdSignal    = signal<string | null>(null);
+  const playerIdSignal   = signal<string | null>(null);
+  const joinCodeSignal   = signal<string | null>(null);
   const matchStateSignal = signal<MatchState | null>(null);
 
-  const mockSaveAlias      = vi.fn((a: string) => aliasSignal.set(a));
-  const mockClear          = vi.fn();
-  const mockCreateMatch    = vi.fn();
-  const mockResolveCode    = vi.fn();
-  const mockJoinMatch      = vi.fn();
-  const mockConnect        = vi.fn();
-  const mockDisconnect     = vi.fn();
-  const mockNavigate       = vi.fn();
+  const mockSaveAlias           = vi.fn((a: string) => aliasSignal.set(a));
+  const mockClear               = vi.fn();
+  const mockGetPersistedSession = vi.fn(() => persistedSession);
+  const mockClearSession        = vi.fn();
+  const mockCreateMatch            = vi.fn();
+  const mockResolveCode            = vi.fn();
+  const mockJoinMatch              = vi.fn();
+  const mockConnect                = vi.fn();
+  const mockDisconnect             = vi.fn();
+  const mockNavigate               = vi.fn();
 
   TestBed.configureTestingModule({
     providers: [
@@ -48,17 +54,19 @@ function setup(queryParams: Record<string, string> = {}, initialAlias: string | 
           playerId:   playerIdSignal,
           joinCode:   joinCodeSignal,
           matchState: matchStateSignal,
-          saveAlias:  mockSaveAlias,
-          clear:      mockClear,
+          saveAlias:           mockSaveAlias,
+          clear:               mockClear,
+          getPersistedSession: mockGetPersistedSession,
+          clearSession:        mockClearSession,
         },
       },
       {
         provide: MatchApiService,
         useValue: {
-          createMatch:    mockCreateMatch,
-          joinMatch:      mockJoinMatch,
+          createMatch:     mockCreateMatch,
+          joinMatch:       mockJoinMatch,
           resolveJoinCode: mockResolveCode,
-          getMatch:       vi.fn(),
+          getMatch:        vi.fn(),
         },
       },
       {
@@ -84,7 +92,8 @@ function setup(queryParams: Record<string, string> = {}, initialAlias: string | 
   return {
     fixture, comp,
     aliasSignal, matchIdSignal, playerIdSignal, joinCodeSignal, matchStateSignal,
-    mockSaveAlias, mockClear, mockCreateMatch, mockResolveCode, mockJoinMatch,
+    mockSaveAlias, mockClear, mockGetPersistedSession,
+    mockClearSession, mockCreateMatch, mockResolveCode, mockJoinMatch,
     mockConnect, mockDisconnect, mockNavigate,
   };
 }
@@ -120,6 +129,18 @@ describe('HomeComponent — alias initialisation', () => {
   });
 });
 
+describe('HomeComponent — WebSocket disconnect on init', () => {
+  it('always disconnects the socket on load, even without query params', () => {
+    const { mockDisconnect } = setup();
+    expect(mockDisconnect).toHaveBeenCalledOnce();
+  });
+
+  it('disconnects before processing query params', () => {
+    const { mockDisconnect } = setup({ abandoned: 'true' });
+    expect(mockDisconnect).toHaveBeenCalledOnce();
+  });
+});
+
 describe('HomeComponent — query param handling', () => {
   it('shows abandoned banner and clears session for ?abandoned=true', () => {
     const { comp, mockClear, mockDisconnect } = setup({ abandoned: 'true' });
@@ -135,10 +156,47 @@ describe('HomeComponent — query param handling', () => {
   });
 });
 
+describe('HomeComponent — rejoin banner', () => {
+  it('shows rejoin banner when a valid persisted lobby session exists', () => {
+    const { comp } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/lobby' });
+    expect(comp.rejoinSession()).toEqual({ matchId: 'match-old', route: '/lobby' });
+  });
+
+  it('shows rejoin banner when a valid persisted match session exists', () => {
+    const { comp } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/match' });
+    expect(comp.rejoinSession()).toEqual({ matchId: 'match-old', route: '/match' });
+  });
+
+  it('does not show rejoin banner when no persisted session', () => {
+    const { comp } = setup({}, 'TestAlias', null);
+    expect(comp.rejoinSession()).toBeNull();
+  });
+
+  it('rejoin() navigates to /lobby/:matchId for a lobby session', () => {
+    const { comp, mockNavigate } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/lobby' });
+    comp.rejoin();
+    expect(mockNavigate).toHaveBeenCalledWith(['/lobby', 'match-old']);
+  });
+
+  it('rejoin() navigates to /match/:matchId for a match session', () => {
+    const { comp, mockNavigate } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/match' });
+    comp.rejoin();
+    expect(mockNavigate).toHaveBeenCalledWith(['/match', 'match-old']);
+  });
+
+  it('dismissRejoin() clears session and hides banner', () => {
+    const { comp, mockClearSession } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/lobby' });
+    comp.dismissRejoin();
+    expect(mockClearSession).toHaveBeenCalledOnce();
+    expect(comp.rejoinSession()).toBeNull();
+  });
+});
+
 describe('HomeComponent — create flow', () => {
   it('calls createMatch, writes session, connects socket, and navigates to lobby', () => {
     const state = makeState();
-    const { comp, mockCreateMatch, mockConnect, mockNavigate, matchIdSignal, playerIdSignal, joinCodeSignal } = setup();
+    const { comp, mockCreateMatch, mockConnect, mockNavigate,
+            matchIdSignal, playerIdSignal, joinCodeSignal } = setup();
     mockCreateMatch.mockReturnValue(of({ matchId: 'match-1', joinCode: 'XYZ123', joinUrl: '/join/XYZ123', state }));
 
     comp.createMatch();
@@ -165,7 +223,8 @@ describe('HomeComponent — create flow', () => {
 describe('HomeComponent — join-by-code flow', () => {
   it('resolves code then joins, writes session, connects socket, and navigates to lobby', () => {
     const state = makeState({ matchId: 'match-2' });
-    const { comp, mockResolveCode, mockJoinMatch, mockConnect, mockNavigate, matchIdSignal, playerIdSignal } = setup();
+    const { comp, mockResolveCode, mockJoinMatch, mockConnect, mockNavigate,
+            matchIdSignal, playerIdSignal } = setup();
     mockResolveCode.mockReturnValue(of({ matchId: 'match-2' }));
     mockJoinMatch.mockReturnValue(of({ matchId: 'match-2', playerId: 'p2', state }));
 
@@ -228,4 +287,3 @@ describe('HomeComponent — join-by-code flow', () => {
     expect(comp.joinCodeInput()).toBe('ABC123');
   });
 });
-

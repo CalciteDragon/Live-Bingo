@@ -18,6 +18,14 @@ import type { RestErrorCode } from '@bingo/shared';
       </div>
     }
 
+    @if (rejoinSession(); as session) {
+      <div class="banner-rejoin">
+        {{ session.route === '/match' ? 'A match is in progress.' : 'You were recently in a lobby.' }}
+        <button (click)="rejoin()">Rejoin</button>
+        <button (click)="dismissRejoin()">Dismiss</button>
+      </div>
+    }
+
     <div class="home-container">
       <h1>Live Bingo</h1>
 
@@ -66,28 +74,30 @@ import type { RestErrorCode } from '@bingo/shared';
 })
 export class HomeComponent {
   readonly sessionStore = inject(SessionStoreService);
-  private readonly matchApi     = inject(MatchApiService);
-  private readonly socket        = inject(MatchSocketService);
-  private readonly router        = inject(Router);
-  private readonly route         = inject(ActivatedRoute);
+  private readonly matchApi  = inject(MatchApiService);
+  private readonly socket    = inject(MatchSocketService);
+  private readonly router    = inject(Router);
+  private readonly route     = inject(ActivatedRoute);
 
-  readonly mode           = signal<'create' | 'join'>('create');
-  readonly joinCodeInput  = signal('');
-  readonly loading        = signal(false);
-  readonly createError    = signal<string | null>(null);
-  readonly joinError      = signal<string | null>(null);
+  readonly mode            = signal<'create' | 'join'>('create');
+  readonly joinCodeInput   = signal('');
+  readonly loading         = signal(false);
+  readonly createError     = signal<string | null>(null);
+  readonly joinError       = signal<string | null>(null);
   readonly abandonedBanner = signal(false);
+  readonly rejoinSession = signal<{ matchId: string; route: '/lobby' | '/match' } | null>(null);
 
   constructor() {
+    this.socket.disconnect();
+
     if (this.sessionStore.alias() === null) {
       this.sessionStore.saveAlias(generateAlias());
     }
 
     this.route.queryParamMap.pipe(take(1)).subscribe(params => {
-      if (params.get('abandoned') === 'true') {
+      if (params.get('abandoned') === 'true') { //todo: check if this is actually used
         this.abandonedBanner.set(true);
         this.sessionStore.clear();
-        this.socket.disconnect();
       }
       const code = params.get('joinCode');
       if (code) {
@@ -96,6 +106,10 @@ export class HomeComponent {
       }
     });
 
+    const session = this.sessionStore.getPersistedSession();
+    if (session) {
+      this.rejoinSession.set(session);
+    }
   }
 
   onAliasChange(event: Event): void {
@@ -159,6 +173,17 @@ export class HomeComponent {
           this.joinError.set(this.formatJoinError(err.code));
         },
       });
+  }
+
+  rejoin(): void {
+    const session = this.rejoinSession();
+    if (!session) return;
+    this.router.navigate([session.route, session.matchId]);
+  }
+
+  dismissRejoin(): void {
+    this.sessionStore.clearSession();
+    this.rejoinSession.set(null);
   }
 
   private formatJoinError(code: RestErrorCode): string {

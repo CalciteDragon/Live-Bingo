@@ -122,6 +122,9 @@ export class LobbyComponent {
   private readonly countdownSubject = new Subject<number>();
 
   constructor() {
+    const matchId = this.sessionStore.matchId();
+    if (matchId) this.sessionStore.saveSession(matchId, '/lobby');
+
     this.socket.messages$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(msg => {
@@ -168,8 +171,11 @@ export class LobbyComponent {
     effect(() => {
       const s = this.sessionStore.matchState();
       if (s?.status === 'InProgress') this.router.navigate(['/match', s.matchId]);
-      if (s?.status === 'Completed')  this.router.navigate(['/match', s.matchId]);
-      if (s?.status === 'Abandoned')  this.router.navigate(['/'], { queryParams: { abandoned: true } });
+      if (s?.status === 'Completed') {
+        this.sessionStore.clearSession();
+        this.router.navigate(['/match', s.matchId]);
+      }
+      if (s?.status === 'Abandoned') this.router.navigate(['/'], { queryParams: { abandoned: true } });
     });
   }
 

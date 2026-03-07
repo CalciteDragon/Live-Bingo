@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { SessionStoreService } from './session-store.service';
 
-const ALIAS_KEY = 'bingo_alias';
+const ALIAS_KEY   = 'bingo_alias';
+const SESSION_KEY = 'bingo_session';
 
 describe('SessionStoreService', () => {
   beforeEach(() => {
@@ -53,5 +54,71 @@ describe('SessionStoreService', () => {
     svc.saveAlias('HeroName');
     svc.clear();
     expect(svc.alias()).toBe('HeroName');
+  });
+
+  it('clear() also removes persisted session', () => {
+    const svc = TestBed.inject(SessionStoreService);
+    svc.saveSession('m1', '/lobby');
+    expect(localStorage.getItem(SESSION_KEY)).not.toBeNull();
+
+    svc.clear();
+
+    expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+  });
+});
+
+describe('SessionStoreService — persisted session', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    TestBed.configureTestingModule({});
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('getPersistedSession() returns null when nothing is stored', () => {
+    const svc = TestBed.inject(SessionStoreService);
+    expect(svc.getPersistedSession()).toBeNull();
+  });
+
+  it('saveSession(/lobby) + getPersistedSession() returns matchId and route', () => {
+    const svc = TestBed.inject(SessionStoreService);
+    svc.saveSession('match-abc', '/lobby');
+    expect(svc.getPersistedSession()).toEqual({ matchId: 'match-abc', route: '/lobby' });
+  });
+
+  it('saveSession(/match) + getPersistedSession() returns matchId and route', () => {
+    const svc = TestBed.inject(SessionStoreService);
+    svc.saveSession('match-abc', '/match');
+    expect(svc.getPersistedSession()).toEqual({ matchId: 'match-abc', route: '/match' });
+  });
+
+  it('saveSession overwrites a previous entry', () => {
+    const svc = TestBed.inject(SessionStoreService);
+    svc.saveSession('match-abc', '/lobby');
+    svc.saveSession('match-abc', '/match');
+    expect(svc.getPersistedSession()).toEqual({ matchId: 'match-abc', route: '/match' });
+  });
+
+  it('getPersistedSession() returns null when session is older than 5 minutes', () => {
+    const svc = TestBed.inject(SessionStoreService);
+    const expired = { matchId: 'old-match', route: '/lobby', savedAt: Date.now() - 6 * 60 * 1000 };
+    localStorage.setItem(SESSION_KEY, JSON.stringify(expired));
+    expect(svc.getPersistedSession()).toBeNull();
+    expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+  });
+
+  it('getPersistedSession() returns null on malformed JSON', () => {
+    const svc = TestBed.inject(SessionStoreService);
+    localStorage.setItem(SESSION_KEY, 'not-json');
+    expect(svc.getPersistedSession()).toBeNull();
+  });
+
+  it('clearSession() removes the stored entry', () => {
+    const svc = TestBed.inject(SessionStoreService);
+    svc.saveSession('m1', '/match');
+    svc.clearSession();
+    expect(svc.getPersistedSession()).toBeNull();
   });
 });

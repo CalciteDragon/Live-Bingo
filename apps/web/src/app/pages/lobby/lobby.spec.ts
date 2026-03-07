@@ -33,22 +33,27 @@ function setup(initialState: MatchState | null = null) {
 
   const messagesSubject = new Subject<ServerMessage>();
 
-  const mockSend       = vi.fn();
-  const mockConnect    = vi.fn();
-  const mockDisconnect = vi.fn();
-  const mockNavigate   = vi.fn();
+  const mockSend         = vi.fn();
+  const mockConnect      = vi.fn();
+  const mockDisconnect   = vi.fn();
+  const mockNavigate     = vi.fn();
+  const mockSaveSession  = vi.fn();
+  const mockClearSession = vi.fn();
+  const mockClear        = vi.fn();
 
   TestBed.configureTestingModule({
     providers: [
       {
         provide: SessionStoreService,
         useValue: {
-          matchState: matchStateSignal,
-          matchId:    matchIdSignal,
-          playerId:   playerIdSignal,
-          joinCode:   joinCodeSignal,
-          alias:      signal('TestAlias'),
-          clear:      vi.fn(),
+          matchState:        matchStateSignal,
+          matchId:           matchIdSignal,
+          playerId:          playerIdSignal,
+          joinCode:          joinCodeSignal,
+          alias:             signal('TestAlias'),
+          clear:        mockClear,
+          saveSession:  mockSaveSession,
+          clearSession: mockClearSession,
         },
       },
       {
@@ -76,7 +81,7 @@ function setup(initialState: MatchState | null = null) {
     fixture, comp,
     matchStateSignal, matchIdSignal, playerIdSignal,
     messagesSubject,
-    mockSend, mockConnect, mockDisconnect, mockNavigate,
+    mockSend, mockConnect, mockDisconnect, mockNavigate, mockSaveSession, mockClearSession, mockClear,
   };
 }
 
@@ -314,6 +319,26 @@ describe('LobbyComponent — status-route effect', () => {
     expect(mockNavigate).toHaveBeenCalledWith(['/match', 'match-1']);
   });
 
+  it('clears session when status becomes Completed', () => {
+    const { matchStateSignal, mockClearSession } = setup();
+
+    matchStateSignal.set(makeState({ matchId: 'match-1', status: 'Completed' }));
+    TestBed.flushEffects();
+
+    expect(mockClearSession).toHaveBeenCalledOnce();
+  });
+
+  it('does not save or clear session when status becomes InProgress or Abandoned', () => {
+    const { matchStateSignal, mockSaveSession, mockClearSession } = setup();
+
+    matchStateSignal.set(makeState({ matchId: 'match-1', status: 'InProgress' }));
+    TestBed.flushEffects();
+
+    // saveSession was called once on load (/lobby); should not be called again for InProgress
+    expect(mockSaveSession).toHaveBeenCalledOnce();
+    expect(mockClearSession).not.toHaveBeenCalled();
+  });
+
   it('navigates to /match/:matchId when status becomes Completed', () => {
     const { matchStateSignal, mockNavigate } = setup();
 
@@ -369,5 +394,12 @@ describe('LobbyComponent — socket lifecycle', () => {
   it('does not call disconnect()', () => {
     const { mockDisconnect } = setup();
     expect(mockDisconnect).not.toHaveBeenCalled();
+  });
+});
+
+describe('LobbyComponent — session persistence', () => {
+  it('saves /lobby session on load', () => {
+    const { mockSaveSession } = setup();
+    expect(mockSaveSession).toHaveBeenCalledWith('match-1', '/lobby');
   });
 });

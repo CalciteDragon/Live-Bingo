@@ -11,9 +11,15 @@ export class MatchComponent {
   private readonly router       = inject(Router);
 
   constructor() {
+    const matchId = this.sessionStore.matchId();
+    if (matchId && this.sessionStore.matchState()?.status === 'InProgress') {
+      this.sessionStore.saveSession(matchId, '/match');
+    }
+
     effect(() => {
       const s = this.sessionStore.matchState();
-      if (s?.status === 'Lobby')    this.router.navigate(['/lobby', s.matchId]);
+      if (s?.status === 'Lobby')     this.router.navigate(['/lobby', s.matchId]);
+      if (s?.status === 'Completed') this.sessionStore.clearSession();
       if (s?.status === 'Abandoned') this.router.navigate(['/'], { queryParams: { abandoned: true } });
     });
   }

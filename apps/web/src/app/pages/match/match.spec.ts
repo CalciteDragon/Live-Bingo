@@ -24,13 +24,21 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
 
 function setup(initialState: MatchState | null = makeState()) {
   const matchStateSignal = signal<MatchState | null>(initialState);
+  const matchIdSignal    = signal<string | null>(initialState?.matchId ?? null);
   const mockNavigate     = vi.fn();
+  const mockSaveSession  = vi.fn();
+  const mockClearSession = vi.fn();
 
   TestBed.configureTestingModule({
     providers: [
       {
         provide: SessionStoreService,
-        useValue: { matchState: matchStateSignal },
+        useValue: {
+          matchState:    matchStateSignal,
+          matchId:       matchIdSignal,
+          saveSession:   mockSaveSession,
+          clearSession:  mockClearSession,
+        },
       },
       { provide: Router, useValue: { navigate: mockNavigate } },
     ],
@@ -38,12 +46,44 @@ function setup(initialState: MatchState | null = makeState()) {
 
   TestBed.createComponent(MatchComponent);
 
-  return { matchStateSignal, mockNavigate };
+  return { matchStateSignal, matchIdSignal, mockNavigate, mockSaveSession, mockClearSession };
 }
 
 afterEach(() => {
   TestBed.resetTestingModule();
   vi.clearAllMocks();
+});
+
+describe('MatchComponent — session persistence', () => {
+  it('saves /match session on load when status is InProgress', () => {
+    const { mockSaveSession } = setup(makeState({ status: 'InProgress' }));
+    expect(mockSaveSession).toHaveBeenCalledWith('match-1', '/match');
+  });
+
+  it('does not save session on load when status is not InProgress', () => {
+    const { mockSaveSession } = setup(makeState({ status: 'Completed', result: { winnerId: 'p1', reason: 'line' } }));
+    expect(mockSaveSession).not.toHaveBeenCalled();
+  });
+
+  it('does not save session on load when matchState is null', () => {
+    const { mockSaveSession } = setup(null);
+    expect(mockSaveSession).not.toHaveBeenCalled();
+  });
+
+  it('clears session when status becomes Completed', () => {
+    const { matchStateSignal, mockClearSession } = setup();
+
+    matchStateSignal.set(makeState({ status: 'Completed', result: { winnerId: 'p1', reason: 'line' } }));
+    TestBed.flushEffects();
+
+    expect(mockClearSession).toHaveBeenCalledOnce();
+  });
+
+  it('does not clear session when status is InProgress', () => {
+    const { mockClearSession } = setup();
+    TestBed.flushEffects();
+    expect(mockClearSession).not.toHaveBeenCalled();
+  });
 });
 
 describe('MatchComponent — status-route effect', () => {
