@@ -37,8 +37,13 @@ import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
           <span class="mono">{{ seed() }}</span>
         </div>
 
+        <div class="row" style="margin-bottom: 0.5rem; align-items: center; gap: 0.5rem">
+          <span class="text-muted" style="white-space: nowrap">Join Code</span>
+          <span class="mono" style="letter-spacing: 0.15em; font-size: 1.1rem">{{ joinCode() ?? '—' }}</span>
+        </div>
+
         <div class="row" style="margin-bottom: 1.5rem">
-          <button class="btn-secondary" (click)="copyInviteLink()">Copy Invite Link</button>
+          <button class="btn-secondary" (click)="copyInviteLink()" [disabled]="!joinCode()">Copy Invite Link</button>
           @if (linkCopied()) {
             <span class="text-muted">Copied!</span>
           }
@@ -138,6 +143,7 @@ export class LobbyComponent {
   });
   readonly timerMode = computed(() => this.state()?.lobbySettings.timerMode ?? 'stopwatch');
   readonly seed      = computed(() => this.state()?.card.seed ?? null);
+  readonly joinCode  = computed(() => this.sessionStore.joinCode());
 
   readonly errorMessage        = signal<string | null>(null);
   readonly linkCopied          = signal(false);
@@ -177,6 +183,11 @@ export class LobbyComponent {
 
           if (!this.isEditingCountdown() && this.pendingCountdownEventId() === null) {
             this.countdownDurationMs.set(cd);
+          }
+        } else if (msg.type === 'PRESENCE_UPDATE') {
+          const current = this.sessionStore.matchState();
+          if (current) {
+            this.sessionStore.matchState.set({ ...current, players: msg.payload.players });
           }
         } else if (msg.type === 'ERROR') {
           this.errorMessage.set(msg.payload.message);
@@ -249,10 +260,13 @@ export class LobbyComponent {
     const code = this.sessionStore.joinCode();
     if (!code) return;
     const url = `${window.location.origin}/join/${code}`;
-    navigator.clipboard.writeText(url).then(() => {
-      this.linkCopied.set(true);
-      setTimeout(() => this.linkCopied.set(false), 2000);
-    });
+    navigator.clipboard.writeText(url).then(
+      () => {
+        this.linkCopied.set(true);
+        setTimeout(() => this.linkCopied.set(false), 2000);
+      },
+      () => this.errorMessage.set('Could not copy to clipboard.'),
+    );
   }
 
   private isPendingCountdownAck(lastAppliedEventId: StateUpdatePayload['lastAppliedEventId']): boolean {

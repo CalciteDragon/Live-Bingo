@@ -25,6 +25,7 @@ function setup(code: string, initialAlias: string | null = 'TestAlias') {
   const aliasSignal      = signal(initialAlias);
   const matchIdSignal    = signal<string | null>(null);
   const playerIdSignal   = signal<string | null>(null);
+  const joinCodeSignal   = signal<string | null>(null);
   const matchStateSignal = signal<MatchState | null>(null);
 
   const mockResolveCode = vi.fn();
@@ -39,6 +40,7 @@ function setup(code: string, initialAlias: string | null = 'TestAlias') {
           alias:      aliasSignal,
           matchId:    matchIdSignal,
           playerId:   playerIdSignal,
+          joinCode:   joinCodeSignal,
           matchState: matchStateSignal,
         },
       },
@@ -60,7 +62,7 @@ function setup(code: string, initialAlias: string | null = 'TestAlias') {
 
   return {
     fixture, comp,
-    aliasSignal, matchIdSignal, playerIdSignal, matchStateSignal,
+    aliasSignal, matchIdSignal, playerIdSignal, joinCodeSignal, matchStateSignal,
     mockResolveCode, mockJoinMatch, mockNavigate,
   };
 }
@@ -90,6 +92,7 @@ describe('JoinComponent — successful join', () => {
     const aliasSignal      = signal<string | null>('TestAlias');
     const matchIdSignal    = signal<string | null>(null);
     const playerIdSignal   = signal<string | null>(null);
+    const joinCodeSignal   = signal<string | null>(null);
     const matchStateSignal = signal<MatchState | null>(null);
 
     TestBed.resetTestingModule();
@@ -97,7 +100,7 @@ describe('JoinComponent — successful join', () => {
       providers: [
         {
           provide: SessionStoreService,
-          useValue: { alias: aliasSignal, matchId: matchIdSignal, playerId: playerIdSignal, matchState: matchStateSignal },
+          useValue: { alias: aliasSignal, matchId: matchIdSignal, playerId: playerIdSignal, joinCode: joinCodeSignal, matchState: matchStateSignal },
         },
         { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch } },
         { provide: Router, useValue: { navigate: mockNavigate } },
@@ -111,6 +114,7 @@ describe('JoinComponent — successful join', () => {
     expect(mockJoinMatch).toHaveBeenCalledWith('match-1', 'TestAlias', 'XYZABC');
     expect(matchIdSignal()).toBe('match-1');
     expect(playerIdSignal()).toBe('p2');
+    expect(joinCodeSignal()).toBe('XYZABC');
     expect(mockNavigate).toHaveBeenCalledWith(['/lobby', 'match-1']);
   });
 });
@@ -126,7 +130,7 @@ describe('JoinComponent — error states', () => {
       providers: [
         {
           provide: SessionStoreService,
-          useValue: { alias: aliasSignal, matchId: signal(null), playerId: signal(null), matchState: signal(null) },
+          useValue: { alias: aliasSignal, matchId: signal(null), playerId: signal(null), joinCode: signal(null), matchState: signal(null) },
         },
         { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: vi.fn() } },
         { provide: Router, useValue: { navigate: mockNavigate } },
@@ -173,7 +177,7 @@ describe('JoinComponent — error states', () => {
       providers: [
         {
           provide: SessionStoreService,
-          useValue: { alias: aliasSignal, matchId: signal(null), playerId: signal(null), matchState: signal(null) },
+          useValue: { alias: aliasSignal, matchId: signal(null), playerId: signal(null), joinCode: signal(null), matchState: signal(null) },
         },
         { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch } },
         { provide: Router, useValue: { navigate: vi.fn() } },
@@ -200,7 +204,7 @@ describe('JoinComponent — navigateToMatch', () => {
       providers: [
         {
           provide: SessionStoreService,
-          useValue: { alias: aliasSignal, matchId: signal(null), playerId: signal(null), matchState: signal(null) },
+          useValue: { alias: aliasSignal, matchId: signal(null), playerId: signal(null), joinCode: signal(null), matchState: signal(null) },
         },
         { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch } },
         { provide: Router, useValue: { navigate: mockNavigate } },

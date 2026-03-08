@@ -37,4 +37,6 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - make sure session store is cleared whenever user is not in a match (probably already the case, but want to verify)
 - post mvp idea: navigating to other pages while in-match shows a "miniplayer" of match with easy return option
 - improve code documentation and comments
-- manual scenario and integration tests
+- identifier to "you" in lobby
+- join code and invite link disappears on refresh
+- reconnect button only works for lobby, not match

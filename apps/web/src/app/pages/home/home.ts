@@ -167,6 +167,7 @@ export class HomeComponent {
         next: res => {
           this.sessionStore.matchId.set(res.matchId);
           this.sessionStore.playerId.set(res.playerId);
+          this.sessionStore.joinCode.set(code);
           this.sessionStore.matchState.set(res.state);
           this.router.navigate(['/lobby', res.matchId]);
         },
