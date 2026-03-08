@@ -3,7 +3,6 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { switchMap, take } from 'rxjs';
 import { SessionStoreService } from '../../core/session-store.service';
 import { MatchApiService, type ApiError } from '../../core/match-api.service';
-import { MatchSocketService } from '../../core/match-socket.service';
 import type { RestErrorCode } from '@bingo/shared';
 
 @Component({
@@ -27,9 +26,8 @@ import type { RestErrorCode } from '@bingo/shared';
 export class JoinComponent {
   private readonly sessionStore = inject(SessionStoreService);
   private readonly matchApi     = inject(MatchApiService);
-  private readonly socket        = inject(MatchSocketService);
-  private readonly router        = inject(Router);
-  private readonly route         = inject(ActivatedRoute);
+  private readonly router       = inject(Router);
+  private readonly route        = inject(ActivatedRoute);
 
   readonly loading        = signal(true);
   readonly error          = signal<string | null>(null);
@@ -60,8 +58,8 @@ export class JoinComponent {
             this.sessionStore.matchId.set(res.matchId);
             this.sessionStore.playerId.set(res.playerId);
             this.sessionStore.matchState.set(res.state);
-            this.socket.connect(res.matchId);
             // Navigation is handled by the status-route effect.
+            // Socket connection is handled by the session guard on the destination route.
           },
           error: (err: ApiError) => {
             this.loading.set(false);

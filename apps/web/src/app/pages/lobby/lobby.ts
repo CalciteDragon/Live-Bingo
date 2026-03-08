@@ -45,7 +45,7 @@ import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
         </div>
 
         <div style="margin-bottom: 1.25rem">
-          @for (player of players(); track player.playerId) {
+          @for (player of playersWithLocalStatus(); track player.playerId) {
             <div class="player-card">
               <span class="player-card__alias">{{ player.alias ?? 'Unknown' }}</span>
               <span class="badge"
@@ -54,9 +54,9 @@ import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
                 {{ readyStates()[player.playerId] ? 'Ready' : 'Not Ready' }}
               </span>
               <span class="badge"
-                [class.badge--online]="player.connected"
-                [class.badge--offline]="!player.connected">
-                {{ player.connected ? 'Online' : 'Offline' }}
+                [class.badge--connected]="player.connected"
+                [class.badge--disconnected]="!player.connected">
+                {{ player.connected ? 'Connected' : 'Disconnected' }}
               </span>
             </div>
           }
@@ -111,6 +111,18 @@ export class LobbyComponent {
 
   readonly players     = computed(() => this.state()?.players ?? []);
   readonly readyStates = computed(() => this.state()?.readyStates ?? {});
+
+  /** Overlays the current player's `connected` field with the live WS status so
+   *  the badge updates immediately on connect/disconnect without waiting for a
+   *  server broadcast. */
+  readonly playersWithLocalStatus = computed(() => {
+    const myId        = this.sessionStore.playerId();
+    const wsConnected = this.socket.connectionStatus() === 'connected';
+    return this.players().map(p => ({
+      ...p,
+      connected: p.playerId === myId ? wsConnected : p.connected,
+    }));
+  });
   readonly myReady     = computed(() => {
     const pid = this.sessionStore.playerId();
     return pid != null ? (this.readyStates()[pid] ?? false) : false;

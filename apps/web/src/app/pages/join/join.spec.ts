@@ -5,7 +5,6 @@ import { of, throwError } from 'rxjs';
 import { JoinComponent } from './join';
 import { SessionStoreService } from '../../core/session-store.service';
 import { MatchApiService } from '../../core/match-api.service';
-import { MatchSocketService } from '../../core/match-socket.service';
 import type { MatchState } from '@bingo/shared';
 
 function makeState(overrides: Partial<MatchState> = {}): MatchState {
@@ -30,7 +29,6 @@ function setup(code: string, initialAlias: string | null = 'TestAlias') {
 
   const mockResolveCode = vi.fn();
   const mockJoinMatch   = vi.fn();
-  const mockConnect     = vi.fn();
   const mockNavigate    = vi.fn();
 
   TestBed.configureTestingModule({
@@ -48,10 +46,6 @@ function setup(code: string, initialAlias: string | null = 'TestAlias') {
         provide: MatchApiService,
         useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch },
       },
-      {
-        provide: MatchSocketService,
-        useValue: { connect: mockConnect },
-      },
       { provide: Router, useValue: { navigate: mockNavigate } },
       {
         provide: ActivatedRoute,
@@ -67,7 +61,7 @@ function setup(code: string, initialAlias: string | null = 'TestAlias') {
   return {
     fixture, comp,
     aliasSignal, matchIdSignal, playerIdSignal, matchStateSignal,
-    mockResolveCode, mockJoinMatch, mockConnect, mockNavigate,
+    mockResolveCode, mockJoinMatch, mockNavigate,
   };
 }
 
@@ -89,14 +83,13 @@ describe('JoinComponent — null alias redirect', () => {
 });
 
 describe('JoinComponent — successful join', () => {
-  it('writes session, connects socket; effect navigates to lobby on success', () => {
-    const mockResolveCode = vi.fn().mockReturnValue(of({ matchId: 'match-1' }));
-    const mockJoinMatch   = vi.fn().mockReturnValue(of({ matchId: 'match-1', playerId: 'p2', state: makeState() }));
-    const mockConnect     = vi.fn();
-    const mockNavigate    = vi.fn();
-    const aliasSignal     = signal<string | null>('TestAlias');
-    const matchIdSignal   = signal<string | null>(null);
-    const playerIdSignal  = signal<string | null>(null);
+  it('writes session; effect navigates to lobby on success (socket connected by guard)', () => {
+    const mockResolveCode  = vi.fn().mockReturnValue(of({ matchId: 'match-1' }));
+    const mockJoinMatch    = vi.fn().mockReturnValue(of({ matchId: 'match-1', playerId: 'p2', state: makeState() }));
+    const mockNavigate     = vi.fn();
+    const aliasSignal      = signal<string | null>('TestAlias');
+    const matchIdSignal    = signal<string | null>(null);
+    const playerIdSignal   = signal<string | null>(null);
     const matchStateSignal = signal<MatchState | null>(null);
 
     TestBed.resetTestingModule();
@@ -107,7 +100,6 @@ describe('JoinComponent — successful join', () => {
           useValue: { alias: aliasSignal, matchId: matchIdSignal, playerId: playerIdSignal, matchState: matchStateSignal },
         },
         { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch } },
-        { provide: MatchSocketService, useValue: { connect: mockConnect } },
         { provide: Router, useValue: { navigate: mockNavigate } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ code: 'XYZABC' })) } },
       ],
@@ -119,7 +111,6 @@ describe('JoinComponent — successful join', () => {
     expect(mockJoinMatch).toHaveBeenCalledWith('match-1', 'TestAlias', 'XYZABC');
     expect(matchIdSignal()).toBe('match-1');
     expect(playerIdSignal()).toBe('p2');
-    expect(mockConnect).toHaveBeenCalledWith('match-1');
     expect(mockNavigate).toHaveBeenCalledWith(['/lobby', 'match-1']);
   });
 });
@@ -138,7 +129,6 @@ describe('JoinComponent — error states', () => {
           useValue: { alias: aliasSignal, matchId: signal(null), playerId: signal(null), matchState: signal(null) },
         },
         { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: vi.fn() } },
-        { provide: MatchSocketService, useValue: { connect: vi.fn() } },
         { provide: Router, useValue: { navigate: mockNavigate } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ code })) } },
       ],
@@ -186,7 +176,6 @@ describe('JoinComponent — error states', () => {
           useValue: { alias: aliasSignal, matchId: signal(null), playerId: signal(null), matchState: signal(null) },
         },
         { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch } },
-        { provide: MatchSocketService, useValue: { connect: vi.fn() } },
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ code: 'ABC123' })) } },
       ],
@@ -214,7 +203,6 @@ describe('JoinComponent — navigateToMatch', () => {
           useValue: { alias: aliasSignal, matchId: signal(null), playerId: signal(null), matchState: signal(null) },
         },
         { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch } },
-        { provide: MatchSocketService, useValue: { connect: vi.fn() } },
         { provide: Router, useValue: { navigate: mockNavigate } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ code: 'ABC123' })) } },
       ],

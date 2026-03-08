@@ -3,7 +3,6 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { switchMap, take } from 'rxjs';
 import { SessionStoreService } from '../../core/session-store.service';
 import { MatchApiService, type ApiError } from '../../core/match-api.service';
-import { MatchSocketService } from '../../core/match-socket.service';
 import { generateAlias } from '../../core/alias';
 import type { RestErrorCode } from '@bingo/shared';
 
@@ -82,10 +81,9 @@ import type { RestErrorCode } from '@bingo/shared';
 })
 export class HomeComponent {
   readonly sessionStore = inject(SessionStoreService);
-  private readonly matchApi  = inject(MatchApiService);
-  private readonly socket    = inject(MatchSocketService);
-  private readonly router    = inject(Router);
-  private readonly route     = inject(ActivatedRoute);
+  private readonly matchApi = inject(MatchApiService);
+  private readonly router   = inject(Router);
+  private readonly route    = inject(ActivatedRoute);
 
   readonly mode            = signal<'create' | 'join'>('create');
   readonly joinCodeInput   = signal('');
@@ -96,8 +94,6 @@ export class HomeComponent {
   readonly rejoinSession = signal<{ matchId: string; route: '/lobby' | '/match' } | null>(null);
 
   constructor() {
-    this.socket.disconnect();
-
     if (this.sessionStore.alias() === null) {
       this.sessionStore.saveAlias(generateAlias());
     }
@@ -143,7 +139,6 @@ export class HomeComponent {
         this.sessionStore.playerId.set(res.state.players[0]!.playerId);
         this.sessionStore.joinCode.set(res.joinCode);
         this.sessionStore.matchState.set(res.state);
-        this.socket.connect(res.matchId);
         this.router.navigate(['/lobby', res.matchId]);
       },
       error: (err: ApiError) => {
@@ -173,7 +168,6 @@ export class HomeComponent {
           this.sessionStore.matchId.set(res.matchId);
           this.sessionStore.playerId.set(res.playerId);
           this.sessionStore.matchState.set(res.state);
-          this.socket.connect(res.matchId);
           this.router.navigate(['/lobby', res.matchId]);
         },
         error: (err: ApiError) => {

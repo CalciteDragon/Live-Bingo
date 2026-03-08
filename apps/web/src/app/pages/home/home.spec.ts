@@ -5,7 +5,6 @@ import { of, throwError, EMPTY } from 'rxjs';
 import { HomeComponent } from './home';
 import { SessionStoreService } from '../../core/session-store.service';
 import { MatchApiService } from '../../core/match-api.service';
-import { MatchSocketService } from '../../core/match-socket.service';
 import type { MatchState } from '@bingo/shared';
 
 function makeState(overrides: Partial<MatchState> = {}): MatchState {
@@ -37,12 +36,10 @@ function setup(
   const mockClear               = vi.fn();
   const mockGetPersistedSession = vi.fn(() => persistedSession);
   const mockClearSession        = vi.fn();
-  const mockCreateMatch            = vi.fn();
-  const mockResolveCode            = vi.fn();
-  const mockJoinMatch              = vi.fn();
-  const mockConnect                = vi.fn();
-  const mockDisconnect             = vi.fn();
-  const mockNavigate               = vi.fn();
+  const mockCreateMatch         = vi.fn();
+  const mockResolveCode         = vi.fn();
+  const mockJoinMatch           = vi.fn();
+  const mockNavigate            = vi.fn();
 
   TestBed.configureTestingModule({
     providers: [
@@ -69,15 +66,6 @@ function setup(
           getMatch:        vi.fn(),
         },
       },
-      {
-        provide: MatchSocketService,
-        useValue: {
-          connect:          mockConnect,
-          disconnect:       mockDisconnect,
-          connectionStatus: signal('disconnected'),
-          messages$:        EMPTY,
-        },
-      },
       { provide: Router, useValue: { navigate: mockNavigate } },
       {
         provide: ActivatedRoute,
@@ -94,7 +82,7 @@ function setup(
     aliasSignal, matchIdSignal, playerIdSignal, joinCodeSignal, matchStateSignal,
     mockSaveAlias, mockClear, mockGetPersistedSession,
     mockClearSession, mockCreateMatch, mockResolveCode, mockJoinMatch,
-    mockConnect, mockDisconnect, mockNavigate,
+    mockNavigate,
   };
 }
 
@@ -129,24 +117,11 @@ describe('HomeComponent — alias initialisation', () => {
   });
 });
 
-describe('HomeComponent — WebSocket disconnect on init', () => {
-  it('always disconnects the socket on load, even without query params', () => {
-    const { mockDisconnect } = setup();
-    expect(mockDisconnect).toHaveBeenCalledOnce();
-  });
-
-  it('disconnects before processing query params', () => {
-    const { mockDisconnect } = setup({ abandoned: 'true' });
-    expect(mockDisconnect).toHaveBeenCalledOnce();
-  });
-});
-
 describe('HomeComponent — query param handling', () => {
   it('shows abandoned banner and clears session for ?abandoned=true', () => {
-    const { comp, mockClear, mockDisconnect } = setup({ abandoned: 'true' });
+    const { comp, mockClear } = setup({ abandoned: 'true' });
     expect(comp.abandonedBanner()).toBe(true);
     expect(mockClear).toHaveBeenCalled();
-    expect(mockDisconnect).toHaveBeenCalled();
   });
 
   it('pre-fills join code and switches to join mode for ?joinCode param', () => {
@@ -193,9 +168,9 @@ describe('HomeComponent — rejoin banner', () => {
 });
 
 describe('HomeComponent — create flow', () => {
-  it('calls createMatch, writes session, connects socket, and navigates to lobby', () => {
+  it('calls createMatch, writes session, and navigates to lobby', () => {
     const state = makeState();
-    const { comp, mockCreateMatch, mockConnect, mockNavigate,
+    const { comp, mockCreateMatch, mockNavigate,
             matchIdSignal, playerIdSignal, joinCodeSignal } = setup();
     mockCreateMatch.mockReturnValue(of({ matchId: 'match-1', joinCode: 'XYZ123', joinUrl: '/join/XYZ123', state }));
 
@@ -205,7 +180,6 @@ describe('HomeComponent — create flow', () => {
     expect(matchIdSignal()).toBe('match-1');
     expect(playerIdSignal()).toBe('p1');
     expect(joinCodeSignal()).toBe('XYZ123');
-    expect(mockConnect).toHaveBeenCalledWith('match-1');
     expect(mockNavigate).toHaveBeenCalledWith(['/lobby', 'match-1']);
   });
 
@@ -221,9 +195,9 @@ describe('HomeComponent — create flow', () => {
 });
 
 describe('HomeComponent — join-by-code flow', () => {
-  it('resolves code then joins, writes session, connects socket, and navigates to lobby', () => {
+  it('resolves code then joins, writes session, and navigates to lobby', () => {
     const state = makeState({ matchId: 'match-2' });
-    const { comp, mockResolveCode, mockJoinMatch, mockConnect, mockNavigate,
+    const { comp, mockResolveCode, mockJoinMatch, mockNavigate,
             matchIdSignal, playerIdSignal } = setup();
     mockResolveCode.mockReturnValue(of({ matchId: 'match-2' }));
     mockJoinMatch.mockReturnValue(of({ matchId: 'match-2', playerId: 'p2', state }));
@@ -235,7 +209,6 @@ describe('HomeComponent — join-by-code flow', () => {
     expect(mockJoinMatch).toHaveBeenCalledWith('match-2', 'TestAlias', 'ABCDEF');
     expect(matchIdSignal()).toBe('match-2');
     expect(playerIdSignal()).toBe('p2');
-    expect(mockConnect).toHaveBeenCalledWith('match-2');
     expect(mockNavigate).toHaveBeenCalledWith(['/lobby', 'match-2']);
   });
 

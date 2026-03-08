@@ -29,13 +29,15 @@ function makeRoute(matchId: string): ActivatedRouteSnapshot {
 function setupGuard(opts: {
   sessionMatchId?: string | null;
   getMatchReturn?: unknown;
+  socketStatus?: 'connected' | 'connecting' | 'disconnected';
 }) {
-  const matchIdSignal    = signal<string | null>(opts.sessionMatchId ?? null);
-  const playerIdSignal   = signal<string | null>(null);
-  const matchStateSignal = signal<MatchState | null>(null);
-  const mockGetMatch     = vi.fn();
-  const mockConnect      = vi.fn();
-  const mockNavigate     = vi.fn();
+  const matchIdSignal       = signal<string | null>(opts.sessionMatchId ?? null);
+  const playerIdSignal      = signal<string | null>(null);
+  const matchStateSignal    = signal<MatchState | null>(null);
+  const connectionStatus    = signal(opts.socketStatus ?? 'connected');
+  const mockGetMatch        = vi.fn();
+  const mockConnect         = vi.fn();
+  const mockNavigate        = vi.fn();
 
   if (opts.getMatchReturn !== undefined) {
     mockGetMatch.mockReturnValue(opts.getMatchReturn);
@@ -46,17 +48,17 @@ function setupGuard(opts: {
       {
         provide: SessionStoreService,
         useValue: {
-          matchId:          matchIdSignal,
-          playerId:         playerIdSignal,
-          matchState:       matchStateSignal,
-          alias:            signal(null),
-          clear:            vi.fn(),
-          saveAlias:        vi.fn(),
+          matchId:     matchIdSignal,
+          playerId:    playerIdSignal,
+          matchState:  matchStateSignal,
+          alias:       signal(null),
+          clear:       vi.fn(),
+          saveAlias:   vi.fn(),
           saveSession: vi.fn(),
         },
       },
       { provide: MatchApiService,    useValue: { getMatch: mockGetMatch } },
-      { provide: MatchSocketService, useValue: { connect: mockConnect, disconnect: vi.fn() } },
+      { provide: MatchSocketService, useValue: { connect: mockConnect, disconnect: vi.fn(), connectionStatus } },
       { provide: Router,             useValue: { navigate: mockNavigate } },
     ],
   });
@@ -80,6 +82,26 @@ describe('sessionGuard — pass-through', () => {
     const { mockGetMatch } = setupGuard({ sessionMatchId: 'match-1' });
     TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as any));
     expect(mockGetMatch).not.toHaveBeenCalled();
+  });
+});
+
+describe('sessionGuard — reconnect on re-entry', () => {
+  it('reconnects socket when matchId matches but socket is disconnected', () => {
+    const { mockConnect } = setupGuard({ sessionMatchId: 'match-1', socketStatus: 'disconnected' });
+    TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as any));
+    expect(mockConnect).toHaveBeenCalledWith('match-1');
+  });
+
+  it('does not reconnect when matchId matches and socket is already connected', () => {
+    const { mockConnect } = setupGuard({ sessionMatchId: 'match-1', socketStatus: 'connected' });
+    TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as any));
+    expect(mockConnect).not.toHaveBeenCalled();
+  });
+
+  it('does not reconnect when matchId matches and socket is still connecting', () => {
+    const { mockConnect } = setupGuard({ sessionMatchId: 'match-1', socketStatus: 'connecting' });
+    TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as any));
+    expect(mockConnect).not.toHaveBeenCalled();
   });
 });
 

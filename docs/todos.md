@@ -8,6 +8,7 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 - [ ] Write integration tests for API endpoints and WebSocket handlers against a real Postgres instance (unit tests with mocked DB already exist) (make sure this is in a seperate command from npm run ci)
 - [ ] Harden idempotency and ACID behavior across in-memory registry and Postgres persistence paths
+- [ ] Add server-side WebSocket heartbeat (ping/pong every ~30s, terminate on no pong) so crashed/killed clients are detected within a bounded time window rather than relying on TCP keepalive (post-MVP)
 
 ## `packages/shared`
 

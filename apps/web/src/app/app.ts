@@ -3,6 +3,7 @@ import { Router, RouterOutlet, NavigationEnd } from '@angular/router';
 import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { SessionStoreService } from './core/session-store.service';
+import { MatchSocketService } from './core/match-socket.service';
 
 @Component({
   selector: 'app-root',
@@ -34,6 +35,7 @@ import { SessionStoreService } from './core/session-store.service';
 export class App {
   private readonly router       = inject(Router);
   private readonly sessionStore = inject(SessionStoreService);
+  private readonly socket       = inject(MatchSocketService);
   private readonly destroyRef   = inject(DestroyRef);
 
   readonly showLeaveWarning = signal(false);
@@ -57,7 +59,15 @@ export class App {
         filter((e): e is NavigationEnd => e instanceof NavigationEnd),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(e => this.currentUrl.set(e.urlAfterRedirects));
+      .subscribe(e => {
+        const url = e.urlAfterRedirects;
+        this.currentUrl.set(url);
+        // Disconnect whenever navigation lands outside a match route so no
+        // future page needs to remember to call socket.disconnect() explicitly.
+        if (!url.startsWith('/lobby') && !url.startsWith('/match')) {
+          this.socket.disconnect();
+        }
+      });
   }
 
   goHome(): void {
