@@ -20,7 +20,6 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/web`
 
-- [ ] Implement Match page component with 5x5 board, timer, host controls, and in-page results overlay (no separate results route) (Phase 4)
 - [ ] Add reconnect status UI + HTTP error hardening for Home/Join + alias client validation (Phase 6)
 - [ ] Add a wildcard route fallback (`**`) to handle unknown URLs (redirect to home or show a minimal Not Found page)
 - [ ] Delete the `ResultsComponent` stub (`src/app/pages/results/`) and its directory (Phase 5)
@@ -39,3 +38,4 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - improve code documentation and comments
 - identifier to "you" in lobby
 - reconnect button only works for lobby, not match
+- remove join url -> home screen with code autofilled flow, url should always go straight to lobby if sucessful
