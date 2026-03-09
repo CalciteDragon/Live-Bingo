@@ -20,4 +20,5 @@ export const routes: Routes = [
     canActivate: [sessionGuard],
     loadComponent: () => import('./pages/match/match').then(m => m.MatchComponent),
   },
+  { path: '**', redirectTo: '' },
 ];

@@ -31,6 +31,7 @@ function setup(code: string, initialAlias: string | null = 'TestAlias') {
   const mockResolveCode = vi.fn();
   const mockJoinMatch   = vi.fn();
   const mockNavigate    = vi.fn();
+  const mockSaveAlias   = vi.fn((a: string) => aliasSignal.set(a));
 
   TestBed.configureTestingModule({
     providers: [
@@ -42,6 +43,7 @@ function setup(code: string, initialAlias: string | null = 'TestAlias') {
           playerId:   playerIdSignal,
           joinCode:   joinCodeSignal,
           matchState: matchStateSignal,
+          saveAlias:  mockSaveAlias,
         },
       },
       {
@@ -63,7 +65,7 @@ function setup(code: string, initialAlias: string | null = 'TestAlias') {
   return {
     fixture, comp,
     aliasSignal, matchIdSignal, playerIdSignal, joinCodeSignal, matchStateSignal,
-    mockResolveCode, mockJoinMatch, mockNavigate,
+    mockResolveCode, mockJoinMatch, mockNavigate, mockSaveAlias,
   };
 }
 
@@ -72,14 +74,41 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('JoinComponent — null alias redirect', () => {
-  it('redirects to / with joinCode query param when alias is null', () => {
-    const { mockNavigate } = setup('ABC123', null);
-    expect(mockNavigate).toHaveBeenCalledWith(['/'], { queryParams: { joinCode: 'ABC123' } });
+describe('JoinComponent — null alias inline form', () => {
+  it('shows alias input (needsAlias) when alias is null, does not navigate', () => {
+    const { comp, mockNavigate, mockResolveCode } = setup('ABC123', null);
+    expect(comp.needsAlias()).toBe(true);
+    expect(comp.loading()).toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockResolveCode).not.toHaveBeenCalled();
   });
 
-  it('does not call resolveJoinCode when alias is null', () => {
-    const { mockResolveCode } = setup('ABC123', null);
+  it('pre-fills aliasInput with a generated alias when alias is null', () => {
+    const { comp } = setup('ABC123', null);
+    expect(comp.aliasInput().length).toBeGreaterThan(0);
+  });
+
+  it('submitAlias() saves alias, hides form, starts join, and navigates on success', () => {
+    const state = makeState();
+    const { comp, mockResolveCode, mockJoinMatch, mockSaveAlias, mockNavigate } = setup('ABC123', null);
+    mockResolveCode.mockReturnValue(of({ matchId: 'match-1' }));
+    mockJoinMatch.mockReturnValue(of({ matchId: 'match-1', playerId: 'p2', state }));
+
+    comp.aliasInput.set('NewPlayer');
+    comp.submitAlias();
+    TestBed.flushEffects();
+
+    expect(mockSaveAlias).toHaveBeenCalledWith('NewPlayer');
+    expect(comp.needsAlias()).toBe(false);
+    expect(mockResolveCode).toHaveBeenCalledWith('ABC123');
+    expect(mockNavigate).toHaveBeenCalledWith(['/lobby', 'match-1']);
+  });
+
+  it('submitAlias() shows aliasError when input is empty', () => {
+    const { comp, mockResolveCode } = setup('ABC123', null);
+    comp.aliasInput.set('   ');
+    comp.submitAlias();
+    expect(comp.aliasError()).toBeTruthy();
     expect(mockResolveCode).not.toHaveBeenCalled();
   });
 });

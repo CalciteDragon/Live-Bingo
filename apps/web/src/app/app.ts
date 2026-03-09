@@ -80,7 +80,7 @@ export class App {
 
   confirmLeave(): void {
     this.showLeaveWarning.set(false);
-    this.sessionStore.clearSession();
+    this.sessionStore.clear();
     this.router.navigate(['/']);
   }
 }

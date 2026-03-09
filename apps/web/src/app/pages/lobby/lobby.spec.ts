@@ -431,3 +431,17 @@ describe('LobbyComponent — session persistence', () => {
     expect(mockSaveSession).toHaveBeenCalledWith('match-1', '/lobby', 'ABC123');
   });
 });
+
+describe('LobbyComponent — player list identity', () => {
+  it('sets isMe=true only for the current player', () => {
+    const state = makeState();
+    const { comp } = setup(state);
+
+    const players = comp.playersWithLocalStatus();
+    const me    = players.find(p => p.playerId === 'p1');
+    const other = players.find(p => p.playerId === 'p2');
+
+    expect(me?.isMe).toBe(true);
+    expect(other?.isMe).toBe(false);
+  });
+});

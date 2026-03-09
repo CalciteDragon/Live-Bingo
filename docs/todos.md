@@ -20,12 +20,6 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/web`
 
-- [ ] Add a wildcard route fallback (`**`) to handle unknown URLs (redirect to home or show a minimal Not Found page)
-- [ ] Defer custom lobby seed input (keep seed display read-only for MVP)
-- [ ] Make the board reshuffle also reset the match timer
-- [ ] Remove the `/join/:code` → home redirect flow (null-alias path); share links should always attempt to join directly and only redirect home on hard errors
-- [ ] Add "you" identifier badge to the current player's row in the Lobby player list
-- [ ] Verify session store is cleared whenever the user is not in an active match (audit all teardown paths)
 - [ ] Post-MVP: show a match miniplayer/quick-return UI when navigating away from an active match
 
 ## CI

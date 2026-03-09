@@ -59,6 +59,9 @@ import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
           @for (player of playersWithLocalStatus(); track player.playerId) {
             <div class="player-card">
               <span class="player-card__alias">{{ player.alias ?? 'Unknown' }}</span>
+              @if (player.isMe) {
+                <span class="badge badge--you">You</span>
+              }
               <span class="badge"
                 [class.badge--ready]="readyStates()[player.playerId]"
                 [class.badge--not-ready]="!readyStates()[player.playerId]">
@@ -132,6 +135,7 @@ export class LobbyComponent {
     return this.players().map(p => ({
       ...p,
       connected: p.playerId === myId ? wsConnected : p.connected,
+      isMe:      p.playerId === myId,
     }));
   });
   readonly myReady     = computed(() => {
