@@ -85,20 +85,26 @@ describe('SessionStoreService — persisted session', () => {
   it('saveSession(/lobby) + getPersistedSession() returns matchId and route', () => {
     const svc = TestBed.inject(SessionStoreService);
     svc.saveSession('match-abc', '/lobby');
-    expect(svc.getPersistedSession()).toEqual({ matchId: 'match-abc', route: '/lobby' });
+    expect(svc.getPersistedSession()).toEqual({ matchId: 'match-abc', route: '/lobby', joinCode: undefined });
   });
 
   it('saveSession(/match) + getPersistedSession() returns matchId and route', () => {
     const svc = TestBed.inject(SessionStoreService);
     svc.saveSession('match-abc', '/match');
-    expect(svc.getPersistedSession()).toEqual({ matchId: 'match-abc', route: '/match' });
+    expect(svc.getPersistedSession()).toEqual({ matchId: 'match-abc', route: '/match', joinCode: undefined });
   });
 
   it('saveSession overwrites a previous entry', () => {
     const svc = TestBed.inject(SessionStoreService);
     svc.saveSession('match-abc', '/lobby');
     svc.saveSession('match-abc', '/match');
-    expect(svc.getPersistedSession()).toEqual({ matchId: 'match-abc', route: '/match' });
+    expect(svc.getPersistedSession()).toEqual({ matchId: 'match-abc', route: '/match', joinCode: undefined });
+  });
+
+  it('saveSession persists joinCode and getPersistedSession() returns it', () => {
+    const svc = TestBed.inject(SessionStoreService);
+    svc.saveSession('match-abc', '/lobby', 'XYZ789');
+    expect(svc.getPersistedSession()).toEqual({ matchId: 'match-abc', route: '/lobby', joinCode: 'XYZ789' });
   });
 
   it('getPersistedSession() returns null when session is older than 5 minutes', () => {

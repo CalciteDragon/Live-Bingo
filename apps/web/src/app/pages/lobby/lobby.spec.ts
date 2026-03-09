@@ -425,8 +425,8 @@ describe('LobbyComponent — socket lifecycle', () => {
 });
 
 describe('LobbyComponent — session persistence', () => {
-  it('saves /lobby session on load', () => {
+  it('saves /lobby session on load with joinCode', () => {
     const { mockSaveSession } = setup();
-    expect(mockSaveSession).toHaveBeenCalledWith('match-1', '/lobby');
+    expect(mockSaveSession).toHaveBeenCalledWith('match-1', '/lobby', 'ABC123');
   });
 });

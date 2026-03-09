@@ -167,9 +167,10 @@ describe('JoinComponent — error states', () => {
     expect(comp.error()).toBe('This invite code is not valid.');
   });
 
-  it('CLIENT_CONFLICT — shows correct message and exposes matchId', () => {
+  it('CLIENT_CONFLICT — shows correct message and exposes matchId when getMatch also fails', () => {
     const mockResolveCode = vi.fn().mockReturnValue(of({ matchId: 'match-99' }));
     const mockJoinMatch   = vi.fn().mockReturnValue(throwError(() => ({ code: 'CLIENT_CONFLICT', message: '' })));
+    const mockGetMatch    = vi.fn().mockReturnValue(throwError(() => ({ code: 'FORBIDDEN', message: '' })));
     const aliasSignal     = signal<string | null>('TestAlias');
 
     TestBed.resetTestingModule();
@@ -179,7 +180,7 @@ describe('JoinComponent — error states', () => {
           provide: SessionStoreService,
           useValue: { alias: aliasSignal, matchId: signal(null), playerId: signal(null), joinCode: signal(null), matchState: signal(null) },
         },
-        { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch } },
+        { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch, getMatch: mockGetMatch } },
         { provide: Router, useValue: { navigate: vi.fn() } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ code: 'ABC123' })) } },
       ],
@@ -190,12 +191,42 @@ describe('JoinComponent — error states', () => {
     expect(comp.conflictMatchId()).toBe('match-99');
     expect(comp.loading()).toBe(false);
   });
+
+  it('CLIENT_CONFLICT — auto-navigates to lobby when getMatch succeeds', () => {
+    const state           = makeState();
+    const mockResolveCode = vi.fn().mockReturnValue(of({ matchId: 'match-99' }));
+    const mockJoinMatch   = vi.fn().mockReturnValue(throwError(() => ({ code: 'CLIENT_CONFLICT', message: '' })));
+    const mockGetMatch    = vi.fn().mockReturnValue(of({ matchId: 'match-99', playerId: 'p1', state: makeState({ matchId: 'match-99' }) }));
+    const matchIdSignal   = signal<string | null>(null);
+    const matchStateSignal = signal<MatchState | null>(null);
+    const mockNavigate    = vi.fn();
+
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: SessionStoreService,
+          useValue: { alias: signal<string | null>('TestAlias'), matchId: matchIdSignal, playerId: signal(null), joinCode: signal(null), matchState: matchStateSignal },
+        },
+        { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch, getMatch: mockGetMatch } },
+        { provide: Router, useValue: { navigate: mockNavigate } },
+        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ code: 'ABC123' })) } },
+      ],
+    });
+    TestBed.createComponent(JoinComponent);
+    TestBed.flushEffects();
+
+    expect(mockGetMatch).toHaveBeenCalledWith('match-99');
+    expect(matchIdSignal()).toBe('match-99');
+    expect(mockNavigate).toHaveBeenCalledWith(['/lobby', 'match-99']);
+  });
 });
 
 describe('JoinComponent — navigateToMatch', () => {
   it('navigates to /lobby/:matchId when conflictMatchId is set', () => {
     const mockResolveCode = vi.fn().mockReturnValue(of({ matchId: 'match-99' }));
     const mockJoinMatch   = vi.fn().mockReturnValue(throwError(() => ({ code: 'CLIENT_CONFLICT', message: '' })));
+    const mockGetMatch    = vi.fn().mockReturnValue(throwError(() => ({ code: 'FORBIDDEN', message: '' })));
     const mockNavigate    = vi.fn();
     const aliasSignal     = signal<string | null>('TestAlias');
 
@@ -206,7 +237,7 @@ describe('JoinComponent — navigateToMatch', () => {
           provide: SessionStoreService,
           useValue: { alias: aliasSignal, matchId: signal(null), playerId: signal(null), joinCode: signal(null), matchState: signal(null) },
         },
-        { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch } },
+        { provide: MatchApiService, useValue: { resolveJoinCode: mockResolveCode, joinMatch: mockJoinMatch, getMatch: mockGetMatch } },
         { provide: Router, useValue: { navigate: mockNavigate } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ code: 'ABC123' })) } },
       ],

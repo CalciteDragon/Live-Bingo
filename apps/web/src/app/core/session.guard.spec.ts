@@ -30,14 +30,19 @@ function setupGuard(opts: {
   sessionMatchId?: string | null;
   getMatchReturn?: unknown;
   socketStatus?: 'connected' | 'connecting' | 'disconnected';
+  persistedJoinCode?: string;
 }) {
   const matchIdSignal       = signal<string | null>(opts.sessionMatchId ?? null);
   const playerIdSignal      = signal<string | null>(null);
+  const joinCodeSignal      = signal<string | null>(null);
   const matchStateSignal    = signal<MatchState | null>(null);
   const connectionStatus    = signal(opts.socketStatus ?? 'connected');
   const mockGetMatch        = vi.fn();
   const mockConnect         = vi.fn();
   const mockNavigate        = vi.fn();
+  const mockGetPersistedSession = vi.fn().mockReturnValue(
+    opts.persistedJoinCode ? { matchId: opts.sessionMatchId ?? 'match-1', route: '/lobby', joinCode: opts.persistedJoinCode } : null,
+  );
 
   if (opts.getMatchReturn !== undefined) {
     mockGetMatch.mockReturnValue(opts.getMatchReturn);
@@ -48,13 +53,15 @@ function setupGuard(opts: {
       {
         provide: SessionStoreService,
         useValue: {
-          matchId:     matchIdSignal,
-          playerId:    playerIdSignal,
-          matchState:  matchStateSignal,
-          alias:       signal(null),
-          clear:       vi.fn(),
-          saveAlias:   vi.fn(),
-          saveSession: vi.fn(),
+          matchId:              matchIdSignal,
+          playerId:             playerIdSignal,
+          joinCode:             joinCodeSignal,
+          matchState:           matchStateSignal,
+          alias:                signal(null),
+          clear:                vi.fn(),
+          saveAlias:            vi.fn(),
+          saveSession:          vi.fn(),
+          getPersistedSession:  mockGetPersistedSession,
         },
       },
       { provide: MatchApiService,    useValue: { getMatch: mockGetMatch } },
@@ -63,7 +70,7 @@ function setupGuard(opts: {
     ],
   });
 
-  return { matchIdSignal, playerIdSignal, matchStateSignal, mockGetMatch, mockConnect, mockNavigate };
+  return { matchIdSignal, playerIdSignal, joinCodeSignal, matchStateSignal, mockGetMatch, mockConnect, mockNavigate, mockGetPersistedSession };
 }
 
 afterEach(() => {
@@ -139,6 +146,29 @@ describe('sessionGuard — hydration (empty store)', () => {
       (sessionGuard(makeRoute('match-1'), null as any) as Observable<boolean>).subscribe(),
     );
     expect(mockConnect).toHaveBeenCalledWith('match-1');
+  });
+
+  it('restores joinCode from persisted session when present', () => {
+    const state = makeState();
+    const { joinCodeSignal } = setupGuard({
+      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }),
+      persistedJoinCode: 'SAVED1',
+    });
+    TestBed.runInInjectionContext(() =>
+      (sessionGuard(makeRoute('match-1'), null as any) as Observable<boolean>).subscribe(),
+    );
+    expect(joinCodeSignal()).toBe('SAVED1');
+  });
+
+  it('does not set joinCode when persisted session has none', () => {
+    const state = makeState();
+    const { joinCodeSignal } = setupGuard({
+      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }),
+    });
+    TestBed.runInInjectionContext(() =>
+      (sessionGuard(makeRoute('match-1'), null as any) as Observable<boolean>).subscribe(),
+    );
+    expect(joinCodeSignal()).toBeNull();
   });
 });
 
