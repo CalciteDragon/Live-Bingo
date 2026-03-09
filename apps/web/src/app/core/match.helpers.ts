@@ -1,4 +1,5 @@
 import type { MatchState, Player, ClientMessage, ClientIntentType } from '@bingo/shared';
+import { randomUUID } from './uuid';
 
 export function getMyPlayer(state: MatchState, playerId: string): Player | undefined {
   return state.players.find(p => p.playerId === playerId);
@@ -24,7 +25,7 @@ export function buildClientMessage<T extends ClientIntentType>(
     type,
     matchId,
     clientId,
-    eventId: crypto.randomUUID(),
+    eventId: randomUUID(),
     payload,
   } as Extract<ClientMessage, { type: T }>;
 }

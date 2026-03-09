@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { randomUUID } from './uuid';
 
 const STORAGE_KEY = 'bingo_client_id';
 
@@ -11,7 +12,7 @@ export class ClientIdService {
     if (stored) {
       this.clientId = stored;
     } else {
-      this.clientId = crypto.randomUUID();
+      this.clientId = randomUUID();
       localStorage.setItem(STORAGE_KEY, this.clientId);
     }
   }

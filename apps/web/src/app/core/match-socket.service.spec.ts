@@ -82,8 +82,12 @@ describe('MatchSocketService', () => {
   it('constructs the correct WebSocket URL', () => {
     svc.connect('match-1');
     const ws = MockWebSocket.instances[0];
+    // In dev (wsBaseUrl: ''), the URL is derived from window.location (jsdom: ws://localhost).
+    // In production, it uses the configured wsBaseUrl directly.
+    const wsOrigin = environment.wsBaseUrl ||
+      `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;
     expect(ws.url).toBe(
-      `${environment.wsBaseUrl}/ws?matchId=match-1&clientId=${encodeURIComponent(clientId)}`,
+      `${wsOrigin}/ws?matchId=match-1&clientId=${encodeURIComponent(clientId)}`,
     );
   });
 

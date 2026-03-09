@@ -3,6 +3,7 @@ import { Observable, Subject, share } from 'rxjs';
 import type { ClientMessage, ServerMessage } from '@bingo/shared';
 import { ClientIdService } from './client-id.service';
 import { environment } from '../../environments/environment';
+import { randomUUID } from './uuid';
 
 export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
 
@@ -52,8 +53,10 @@ export class MatchSocketService {
   }
 
   private openSocket(matchId: string): void {
+    const wsOrigin = environment.wsBaseUrl ||
+      `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}`;
     const url =
-      `${environment.wsBaseUrl}/ws` +
+      `${wsOrigin}/ws` +
       `?matchId=${encodeURIComponent(matchId)}` +
       `&clientId=${encodeURIComponent(this.clientId)}`;
 
@@ -69,7 +72,7 @@ export class MatchSocketService {
         type: 'SYNC_STATE',
         matchId,
         clientId: this.clientId,
-        eventId: crypto.randomUUID(),
+        eventId: randomUUID(),
         payload: {},
       });
     });
