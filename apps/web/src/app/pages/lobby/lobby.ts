@@ -19,6 +19,12 @@ import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
   selector: 'app-lobby',
   standalone: true,
   template: `
+    @if (isReconnecting()) {
+      <div class="banner banner--warning">
+        <span>Reconnecting…</span>
+      </div>
+    }
+
     @if (errorMessage()) {
       <div class="banner banner--error">
         <span>{{ errorMessage() }}</span>
@@ -144,6 +150,8 @@ export class LobbyComponent {
   readonly timerMode = computed(() => this.state()?.lobbySettings.timerMode ?? 'stopwatch');
   readonly seed      = computed(() => this.state()?.card.seed ?? null);
   readonly joinCode  = computed(() => this.sessionStore.joinCode());
+
+  readonly isReconnecting = computed(() => this.socket.isReconnecting());
 
   readonly errorMessage        = signal<string | null>(null);
   readonly linkCopied          = signal(false);

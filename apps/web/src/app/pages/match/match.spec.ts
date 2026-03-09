@@ -55,7 +55,7 @@ function setup(initialState: MatchState | null = makeState(), playerId = 'p1') {
       },
       {
         provide: MatchSocketService,
-        useValue: { messages$: messages$.asObservable(), send: mockSend, connect: mockConnect, disconnect: mockDisconnect },
+        useValue: { messages$: messages$.asObservable(), send: mockSend, connect: mockConnect, disconnect: mockDisconnect, isReconnecting: signal(false) },
       },
       {
         provide: ClientIdService,

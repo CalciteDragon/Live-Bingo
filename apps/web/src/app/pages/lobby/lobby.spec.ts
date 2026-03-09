@@ -64,6 +64,7 @@ function setup(initialState: MatchState | null = null) {
           connect:          mockConnect,
           disconnect:       mockDisconnect,
           connectionStatus: signal('connected'),
+          isReconnecting:   signal(false),
         },
       },
       {

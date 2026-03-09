@@ -56,6 +56,15 @@ export class MatchApiService {
       const err = e.error as { code: RestErrorCode; message: string };
       return { code: err.code, message: err.message ?? '' };
     }
-    return { code: 'MATCH_NOT_FOUND', message: 'An unexpected error occurred.' };
+    if (e != null && typeof e === 'object' && 'status' in e) {
+      const status = (e as { status: number }).status;
+      if (status === 0) {
+        return { code: 'MATCH_NOT_FOUND', message: 'Network error. Check your connection and try again.' };
+      }
+      if (status >= 500) {
+        return { code: 'MATCH_NOT_FOUND', message: 'Server error. Please try again in a moment.' };
+      }
+    }
+    return { code: 'MATCH_NOT_FOUND', message: 'An unexpected error occurred. Please try again.' };
   }
 }

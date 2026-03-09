@@ -45,8 +45,17 @@ export const sessionGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
       socket.connect(matchId);
       return true as const;
     }),
-    catchError(() => {
-      router.navigate(['/']);
+    catchError((err: unknown) => {
+      const isForbidden =
+        err != null &&
+        typeof err === 'object' &&
+        'code' in err &&
+        (err as { code: string }).code === 'FORBIDDEN';
+      if (isForbidden) {
+        router.navigate(['/'], { queryParams: { error: 'forbidden' } });
+      } else {
+        router.navigate(['/']);
+      }
       return of(false as const);
     }),
   );

@@ -1,4 +1,4 @@
-import { TestBed, fakeAsync, tick } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { MatchSocketService } from './match-socket.service';
 import { ClientIdService } from './client-id.service';
 import { environment } from '../../environments/environment';
@@ -105,11 +105,62 @@ describe('MatchSocketService', () => {
     expect(sent.clientId).toBe(clientId);
   });
 
-  it('transitions to disconnected on close', () => {
-    svc.connect('match-1');
-    MockWebSocket.instances[0].open();
-    MockWebSocket.instances[0].close();
-    expect(svc.connectionStatus()).toBe('disconnected');
+  it('schedules reconnect and sets connecting on unintentional close', () => {
+    vi.useFakeTimers();
+    try {
+      svc.connect('match-1');
+      MockWebSocket.instances[0].open();
+      MockWebSocket.instances[0].close(); // unintentional — server dropped the connection
+
+      // Should be reconnecting (not disconnected)
+      expect(svc.connectionStatus()).toBe('connecting');
+      expect(svc.isReconnecting()).toBe(true);
+
+      // Advance past the first retry delay (1 s)
+      vi.advanceTimersByTime(1000);
+      expect(MockWebSocket.instances).toHaveLength(2);
+      MockWebSocket.instances[1]!.open();
+      expect(svc.connectionStatus()).toBe('connected');
+      expect(svc.isReconnecting()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does NOT reconnect after intentional disconnect', () => {
+    vi.useFakeTimers();
+    try {
+      svc.connect('match-1');
+      MockWebSocket.instances[0].open();
+      svc.disconnect();
+      expect(svc.connectionStatus()).toBe('disconnected');
+      expect(svc.isReconnecting()).toBe(false);
+      vi.advanceTimersByTime(5000);
+      expect(MockWebSocket.instances).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('uses exponential backoff — consecutive failures increase delay', () => {
+    vi.useFakeTimers();
+    try {
+      svc.connect('match-1');
+      MockWebSocket.instances[0].open();
+      MockWebSocket.instances[0].close(); // 1st failure → retry at 1 s
+
+      vi.advanceTimersByTime(1000);
+      expect(MockWebSocket.instances).toHaveLength(2);
+      // Do NOT open — immediately fail again (2nd failure → retry at 2 s)
+      MockWebSocket.instances[1]!.emit('close', {});
+
+      vi.advanceTimersByTime(1999);
+      expect(MockWebSocket.instances).toHaveLength(2); // not yet at 2 s
+      vi.advanceTimersByTime(1);
+      expect(MockWebSocket.instances).toHaveLength(3); // 3rd socket opened
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('messages$ emits incoming server messages', () => {

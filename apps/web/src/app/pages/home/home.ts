@@ -19,6 +19,15 @@ import type { RestErrorCode } from '@bingo/shared';
       </div>
     }
 
+    @if (forbiddenBanner()) {
+      <div class="banner banner--error">
+        <span>You are not a participant in this match.</span>
+        <div class="banner__actions">
+          <button class="btn-ghost" (click)="forbiddenBanner.set(false)">Dismiss</button>
+        </div>
+      </div>
+    }
+
     @if (rejoinSession(); as session) {
       <div class="banner banner--info">
         <span>{{ session.route === '/match' ? 'A match is in progress.' : 'You were recently in a lobby.' }}</span>
@@ -42,6 +51,9 @@ import type { RestErrorCode } from '@bingo/shared';
             [value]="sessionStore.alias() ?? ''"
             (change)="onAliasChange($event)"
           />
+          @if (aliasError()) {
+            <p class="error-text">{{ aliasError() }}</p>
+          }
         </div>
 
         <div class="tabs">
@@ -90,7 +102,9 @@ export class HomeComponent {
   readonly loading         = signal(false);
   readonly createError     = signal<string | null>(null);
   readonly joinError       = signal<string | null>(null);
+  readonly aliasError      = signal<string | null>(null);
   readonly abandonedBanner = signal(false);
+  readonly forbiddenBanner = signal(false);
   readonly rejoinSession = signal<{ matchId: string; route: '/lobby' | '/match' } | null>(null);
 
   constructor() {
@@ -99,8 +113,12 @@ export class HomeComponent {
     }
 
     this.route.queryParamMap.pipe(take(1)).subscribe(params => {
-      if (params.get('abandoned') === 'true') { //todo: check if this is actually used
+      if (params.get('abandoned') === 'true') {
         this.abandonedBanner.set(true);
+        this.sessionStore.clear();
+      }
+      if (params.get('error') === 'forbidden') {
+        this.forbiddenBanner.set(true);
         this.sessionStore.clear();
       }
       const code = params.get('joinCode');
@@ -119,6 +137,7 @@ export class HomeComponent {
   onAliasChange(event: Event): void {
     const value = (event.target as HTMLInputElement).value.trim();
     if (value) {
+      this.aliasError.set(null);
       this.sessionStore.saveAlias(value);
     }
   }
@@ -129,7 +148,12 @@ export class HomeComponent {
   }
 
   createMatch(): void {
-    const alias = this.sessionStore.alias()!;
+    const alias = this.sessionStore.alias()?.trim() ?? '';
+    if (!alias) {
+      this.aliasError.set('Name is required.');
+      return;
+    }
+    this.aliasError.set(null);
     this.loading.set(true);
     this.createError.set(null);
 
@@ -150,7 +174,13 @@ export class HomeComponent {
 
   joinByCode(): void {
     const code  = this.joinCodeInput();
-    const alias = this.sessionStore.alias()!;
+    const alias = this.sessionStore.alias()?.trim() ?? '';
+
+    if (!alias) {
+      this.aliasError.set('Name is required.');
+      return;
+    }
+    this.aliasError.set(null);
 
     if (code.length !== 6) {
       this.joinError.set('Enter a 6-character invite code.');

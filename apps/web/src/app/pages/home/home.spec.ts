@@ -124,6 +124,12 @@ describe('HomeComponent — query param handling', () => {
     expect(mockClear).toHaveBeenCalled();
   });
 
+  it('shows forbidden banner and clears session for ?error=forbidden', () => {
+    const { comp, mockClear } = setup({ error: 'forbidden' });
+    expect(comp.forbiddenBanner()).toBe(true);
+    expect(mockClear).toHaveBeenCalled();
+  });
+
   it('pre-fills join code and switches to join mode for ?joinCode param', () => {
     const { comp } = setup({ joinCode: 'abc123' });
     expect(comp.joinCodeInput()).toBe('ABC123');
@@ -164,6 +170,31 @@ describe('HomeComponent — rejoin banner', () => {
     comp.dismissRejoin();
     expect(mockClearSession).toHaveBeenCalledOnce();
     expect(comp.rejoinSession()).toBeNull();
+  });
+});
+
+describe('HomeComponent — alias validation', () => {
+  it('shows aliasError and does not call createMatch when alias is empty', () => {
+    const { comp, mockCreateMatch } = setup({}, '');
+    comp.createMatch();
+    expect(comp.aliasError()).toBeTruthy();
+    expect(mockCreateMatch).not.toHaveBeenCalled();
+  });
+
+  it('shows aliasError and does not call resolveJoinCode when alias is empty on join', () => {
+    const { comp, mockResolveCode } = setup({}, '');
+    comp.joinCodeInput.set('ABCDEF');
+    comp.joinByCode();
+    expect(comp.aliasError()).toBeTruthy();
+    expect(mockResolveCode).not.toHaveBeenCalled();
+  });
+
+  it('clears aliasError when a valid alias is entered via onAliasChange', () => {
+    const { comp } = setup({}, '');
+    comp.createMatch(); // triggers aliasError
+    expect(comp.aliasError()).toBeTruthy();
+    comp.onAliasChange({ target: { value: 'ValidName' } } as unknown as Event);
+    expect(comp.aliasError()).toBeNull();
   });
 });
 

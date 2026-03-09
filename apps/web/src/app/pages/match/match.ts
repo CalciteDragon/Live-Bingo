@@ -24,6 +24,12 @@ import { buildClientMessage, isHost } from '../../core/match.helpers';
   standalone: true,
   imports: [AsyncPipe, BingoCellComponent, ResultsOverlayComponent],
   template: `
+    @if (isReconnecting()) {
+      <div class="banner banner--warning">
+        <span>Reconnecting…</span>
+      </div>
+    }
+
     @if (errorMessage()) {
       <div class="banner banner--error">
         <span>{{ errorMessage() }}</span>
@@ -84,6 +90,8 @@ export class MatchComponent {
     const pid = this.playerId();
     return s != null && pid != null ? isHost(s, pid) : false;
   });
+
+  readonly isReconnecting = computed(() => this.socket.isReconnecting());
 
   readonly errorMessage = signal<string | null>(null);
 

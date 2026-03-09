@@ -20,22 +20,17 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/web`
 
-- [ ] Add reconnect status UI + HTTP error hardening for Home/Join + alias client validation (Phase 6)
 - [ ] Add a wildcard route fallback (`**`) to handle unknown URLs (redirect to home or show a minimal Not Found page)
-- [ ] Delete the `ResultsComponent` stub (`src/app/pages/results/`) and its directory (Phase 5)
 - [ ] Defer custom lobby seed input (keep seed display read-only for MVP)
 - [ ] Make the board reshuffle also reset the match timer
+- [ ] Remove the `/join/:code` → home redirect flow (null-alias path); share links should always attempt to join directly and only redirect home on hard errors
+- [ ] Add "you" identifier badge to the current player's row in the Lobby player list
+- [ ] Verify session store is cleared whenever the user is not in an active match (audit all teardown paths)
+- [ ] Post-MVP: show a match miniplayer/quick-return UI when navigating away from an active match
 
 ## CI
 
 - [ ] Add Postgres service to `test-api` job once DB integration is implemented
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
-
-- join url checks if user is already in a match with the same ID, or if the passed in ID leads to valid *different* match before deciding to snap "recorrect" url or join a new match
-- make sure session store is cleared whenever user is not in a match (probably already the case, but want to verify)
-- post mvp idea: navigating to other pages while in-match shows a "miniplayer" of match with easy return option
-- improve code documentation and comments
-- identifier to "you" in lobby
-- reconnect button only works for lobby, not match
-- remove join url -> home screen with code autofilled flow, url should always go straight to lobby if sucessful
+- fix home join button "you are already in this match"
