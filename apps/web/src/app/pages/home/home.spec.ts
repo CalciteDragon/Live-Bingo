@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { Router, ActivatedRoute, convertToParamMap } from '@angular/router';
-import { of, throwError, EMPTY } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { HomeComponent } from './home';
 import { SessionStoreService } from '../../core/session-store.service';
 import { MatchApiService } from '../../core/match-api.service';
@@ -24,7 +24,7 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
 function setup(
   queryParams: Record<string, string> = {},
   initialAlias: string | null = 'TestAlias',
-  persistedSession: { matchId: string; route: '/lobby' | '/match' } | null = null,
+  persistedSession: { matchId: string; route: '/lobby' | '/match'; joinCode?: string } | null = null,
 ) {
   const aliasSignal      = signal(initialAlias);
   const matchIdSignal    = signal<string | null>(null);
@@ -37,8 +37,6 @@ function setup(
   const mockGetPersistedSession = vi.fn(() => persistedSession);
   const mockClearSession        = vi.fn();
   const mockCreateMatch         = vi.fn();
-  const mockResolveCode         = vi.fn();
-  const mockJoinMatch           = vi.fn();
   const mockNavigate            = vi.fn();
 
   TestBed.configureTestingModule({
@@ -59,12 +57,7 @@ function setup(
       },
       {
         provide: MatchApiService,
-        useValue: {
-          createMatch:     mockCreateMatch,
-          joinMatch:       mockJoinMatch,
-          resolveJoinCode: mockResolveCode,
-          getMatch:        vi.fn(),
-        },
+        useValue: { createMatch: mockCreateMatch },
       },
       { provide: Router, useValue: { navigate: mockNavigate } },
       {
@@ -81,8 +74,7 @@ function setup(
     fixture, comp,
     aliasSignal, matchIdSignal, playerIdSignal, joinCodeSignal, matchStateSignal,
     mockSaveAlias, mockClear, mockGetPersistedSession,
-    mockClearSession, mockCreateMatch, mockResolveCode, mockJoinMatch,
-    mockNavigate,
+    mockClearSession, mockCreateMatch, mockNavigate,
   };
 }
 
@@ -140,12 +132,12 @@ describe('HomeComponent — query param handling', () => {
 describe('HomeComponent — rejoin banner', () => {
   it('shows rejoin banner when a valid persisted lobby session exists', () => {
     const { comp } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/lobby' });
-    expect(comp.rejoinSession()).toEqual({ matchId: 'match-old', route: '/lobby' });
+    expect(comp.rejoinSession()).toMatchObject({ matchId: 'match-old', route: '/lobby' });
   });
 
   it('shows rejoin banner when a valid persisted match session exists', () => {
     const { comp } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/match' });
-    expect(comp.rejoinSession()).toEqual({ matchId: 'match-old', route: '/match' });
+    expect(comp.rejoinSession()).toMatchObject({ matchId: 'match-old', route: '/match' });
   });
 
   it('does not show rejoin banner when no persisted session', () => {
@@ -153,13 +145,19 @@ describe('HomeComponent — rejoin banner', () => {
     expect(comp.rejoinSession()).toBeNull();
   });
 
-  it('rejoin() navigates to /lobby/:matchId for a lobby session', () => {
+  it('rejoin() navigates to /join/:code when joinCode is available', () => {
+    const { comp, mockNavigate } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/lobby', joinCode: 'XYZ123' });
+    comp.rejoin();
+    expect(mockNavigate).toHaveBeenCalledWith(['/join', 'XYZ123']);
+  });
+
+  it('rejoin() falls back to direct route navigation when joinCode is absent', () => {
     const { comp, mockNavigate } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/lobby' });
     comp.rejoin();
     expect(mockNavigate).toHaveBeenCalledWith(['/lobby', 'match-old']);
   });
 
-  it('rejoin() navigates to /match/:matchId for a match session', () => {
+  it('rejoin() falls back to /match route when joinCode absent and route is /match', () => {
     const { comp, mockNavigate } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/match' });
     comp.rejoin();
     expect(mockNavigate).toHaveBeenCalledWith(['/match', 'match-old']);
@@ -174,19 +172,19 @@ describe('HomeComponent — rejoin banner', () => {
 });
 
 describe('HomeComponent — alias validation', () => {
-  it('shows aliasError and does not call createMatch when alias is empty', () => {
+  it('shows aliasError and does not navigate when alias is empty on create', () => {
     const { comp, mockCreateMatch } = setup({}, '');
     comp.createMatch();
     expect(comp.aliasError()).toBeTruthy();
     expect(mockCreateMatch).not.toHaveBeenCalled();
   });
 
-  it('shows aliasError and does not call resolveJoinCode when alias is empty on join', () => {
-    const { comp, mockResolveCode } = setup({}, '');
+  it('shows aliasError and does not navigate when alias is empty on join', () => {
+    const { comp, mockNavigate } = setup({}, '');
     comp.joinCodeInput.set('ABCDEF');
     comp.joinByCode();
     expect(comp.aliasError()).toBeTruthy();
-    expect(mockResolveCode).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('clears aliasError when a valid alias is entered via onAliasChange', () => {
@@ -226,63 +224,19 @@ describe('HomeComponent — create flow', () => {
 });
 
 describe('HomeComponent — join-by-code flow', () => {
-  it('resolves code then joins, writes session, and navigates to lobby', () => {
-    const state = makeState({ matchId: 'match-2' });
-    const { comp, mockResolveCode, mockJoinMatch, mockNavigate,
-            matchIdSignal, playerIdSignal } = setup();
-    mockResolveCode.mockReturnValue(of({ matchId: 'match-2' }));
-    mockJoinMatch.mockReturnValue(of({ matchId: 'match-2', playerId: 'p2', state }));
-
+  it('navigates to /join/:code when alias and code are valid', () => {
+    const { comp, mockNavigate } = setup();
     comp.joinCodeInput.set('ABCDEF');
     comp.joinByCode();
-
-    expect(mockResolveCode).toHaveBeenCalledWith('ABCDEF');
-    expect(mockJoinMatch).toHaveBeenCalledWith('match-2', 'TestAlias', 'ABCDEF');
-    expect(matchIdSignal()).toBe('match-2');
-    expect(playerIdSignal()).toBe('p2');
-    expect(mockNavigate).toHaveBeenCalledWith(['/lobby', 'match-2']);
+    expect(mockNavigate).toHaveBeenCalledWith(['/join', 'ABCDEF']);
   });
 
-  it('shows validation error when code is shorter than 6 chars without calling API', () => {
-    const { comp, mockResolveCode } = setup();
+  it('shows validation error when code is shorter than 6 chars without navigating', () => {
+    const { comp, mockNavigate } = setup();
     comp.joinCodeInput.set('AB');
     comp.joinByCode();
-    expect(mockResolveCode).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalled();
     expect(comp.joinError()).toBeTruthy();
-  });
-
-  it('shows MATCH_NOT_FOUND error message', () => {
-    const { comp, mockResolveCode } = setup();
-    mockResolveCode.mockReturnValue(throwError(() => ({ code: 'MATCH_NOT_FOUND', message: '' })));
-    comp.joinCodeInput.set('ABCDEF');
-    comp.joinByCode();
-    expect(comp.joinError()).toBe('This match no longer exists.');
-    expect(comp.loading()).toBe(false);
-  });
-
-  it('shows MATCH_FULL error message', () => {
-    const { comp, mockResolveCode } = setup();
-    mockResolveCode.mockReturnValue(throwError(() => ({ code: 'MATCH_FULL', message: '' })));
-    comp.joinCodeInput.set('ABCDEF');
-    comp.joinByCode();
-    expect(comp.joinError()).toBe('This match is already full.');
-  });
-
-  it('shows JOIN_CODE_EXPIRED error message', () => {
-    const { comp, mockResolveCode } = setup();
-    mockResolveCode.mockReturnValue(throwError(() => ({ code: 'JOIN_CODE_EXPIRED', message: '' })));
-    comp.joinCodeInput.set('ABCDEF');
-    comp.joinByCode();
-    expect(comp.joinError()).toBe('This invite link has expired.');
-  });
-
-  it('shows CLIENT_CONFLICT error message', () => {
-    const { comp, mockResolveCode, mockJoinMatch } = setup();
-    mockResolveCode.mockReturnValue(of({ matchId: 'match-1' }));
-    mockJoinMatch.mockReturnValue(throwError(() => ({ code: 'CLIENT_CONFLICT', message: '' })));
-    comp.joinCodeInput.set('ABCDEF');
-    comp.joinByCode();
-    expect(comp.joinError()).toBe('You are already in this match.');
   });
 
   it('onJoinCodeInput uppercases the value', () => {

@@ -1,10 +1,9 @@
 import { Component, inject, signal } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
-import { switchMap, take } from 'rxjs';
+import { take } from 'rxjs';
 import { SessionStoreService } from '../../core/session-store.service';
 import { MatchApiService, type ApiError } from '../../core/match-api.service';
 import { generateAlias } from '../../core/alias';
-import type { RestErrorCode } from '@bingo/shared';
 
 @Component({
   selector: 'app-home',
@@ -105,7 +104,7 @@ export class HomeComponent {
   readonly aliasError      = signal<string | null>(null);
   readonly abandonedBanner = signal(false);
   readonly forbiddenBanner = signal(false);
-  readonly rejoinSession = signal<{ matchId: string; route: '/lobby' | '/match' } | null>(null);
+  readonly rejoinSession   = signal<{ matchId: string; route: '/lobby' | '/match'; joinCode?: string } | null>(null);
 
   constructor() {
     if (this.sessionStore.alias() === null) {
@@ -187,47 +186,22 @@ export class HomeComponent {
       return;
     }
 
-    this.loading.set(true);
     this.joinError.set(null);
-
-    this.matchApi
-      .resolveJoinCode(code)
-      .pipe(switchMap(res => this.matchApi.joinMatch(res.matchId, alias, code)))
-      .subscribe({
-        next: res => {
-          this.sessionStore.matchId.set(res.matchId);
-          this.sessionStore.playerId.set(res.playerId);
-          this.sessionStore.joinCode.set(code);
-          this.sessionStore.matchState.set(res.state);
-          this.router.navigate(['/lobby', res.matchId]);
-        },
-        error: (err: ApiError) => {
-          this.loading.set(false);
-          this.joinError.set(this.formatJoinError(err.code));
-        },
-      });
+    this.router.navigate(['/join', code]);
   }
 
   rejoin(): void {
     const session = this.rejoinSession();
     if (!session) return;
-    this.router.navigate([session.route, session.matchId]);
+    if (session.joinCode) {
+      this.router.navigate(['/join', session.joinCode]);
+    } else {
+      this.router.navigate([session.route, session.matchId]);
+    }
   }
 
   dismissRejoin(): void {
     this.sessionStore.clearSession();
     this.rejoinSession.set(null);
-  }
-
-  private formatJoinError(code: RestErrorCode): string {
-    switch (code) {
-      case 'MATCH_NOT_FOUND':    return 'This match no longer exists.';
-      case 'MATCH_FULL':         return 'This match is already full.';
-      case 'JOIN_CODE_EXPIRED':  return 'This invite link has expired.';
-      case 'MATCH_NOT_JOINABLE': return 'This match has already started.';
-      case 'JOIN_CODE_INVALID':  return 'This invite code is not valid.';
-      case 'CLIENT_CONFLICT':    return 'You are already in this match.';
-      default:                   return 'Something went wrong. Please try again.';
-    }
   }
 }
