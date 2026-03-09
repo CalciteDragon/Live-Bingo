@@ -40,6 +40,8 @@ export const sessionGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
       sessionStore.matchId.set(res.matchId);
       sessionStore.playerId.set(res.playerId);
       sessionStore.matchState.set(res.state);
+      const persisted = sessionStore.getPersistedSession();
+      if (persisted?.joinCode) sessionStore.joinCode.set(persisted.joinCode);
       socket.connect(matchId);
       return true as const;
     }),

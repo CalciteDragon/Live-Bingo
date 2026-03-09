@@ -156,7 +156,7 @@ export class LobbyComponent {
 
   constructor() {
     const matchId = this.sessionStore.matchId();
-    if (matchId) this.sessionStore.saveSession(matchId, '/lobby');
+    if (matchId) this.sessionStore.saveSession(matchId, '/lobby', this.sessionStore.joinCode() ?? undefined);
 
     this.socket.messages$
       .pipe(takeUntilDestroyed(this.destroyRef))

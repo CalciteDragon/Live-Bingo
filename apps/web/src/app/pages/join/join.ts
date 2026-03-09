@@ -63,11 +63,26 @@ export class JoinComponent {
             // Socket connection is handled by the session guard on the destination route.
           },
           error: (err: ApiError) => {
+            if (err.code === 'CLIENT_CONFLICT' && resolvedMatchId) {
+              // Already a participant — restore session via GET and navigate.
+              this.matchApi.getMatch(resolvedMatchId).subscribe({
+                next: res => {
+                  this.sessionStore.matchId.set(res.matchId);
+                  this.sessionStore.playerId.set(res.playerId);
+                  this.sessionStore.joinCode.set(code);
+                  this.sessionStore.matchState.set(res.state);
+                  // Status-route effect handles navigation.
+                },
+                error: () => {
+                  this.loading.set(false);
+                  this.error.set(this.formatError(err.code));
+                  this.conflictMatchId.set(resolvedMatchId);
+                },
+              });
+              return;
+            }
             this.loading.set(false);
             this.error.set(this.formatError(err.code));
-            if (err.code === 'CLIENT_CONFLICT' && resolvedMatchId) {
-              this.conflictMatchId.set(resolvedMatchId);
-            }
           },
         });
     });

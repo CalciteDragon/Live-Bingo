@@ -9,6 +9,7 @@ interface PersistedSession {
   matchId: string;
   route: '/lobby' | '/match';
   savedAt: number;
+  joinCode?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -24,12 +25,12 @@ export class SessionStoreService {
     this.alias.set(alias);
   }
 
-  saveSession(matchId: string, route: '/lobby' | '/match'): void {
-    const session: PersistedSession = { matchId, route, savedAt: Date.now() };
+  saveSession(matchId: string, route: '/lobby' | '/match', joinCode?: string): void {
+    const session: PersistedSession = { matchId, route, savedAt: Date.now(), joinCode };
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   }
 
-  getPersistedSession(): { matchId: string; route: '/lobby' | '/match' } | null {
+  getPersistedSession(): { matchId: string; route: '/lobby' | '/match'; joinCode?: string } | null {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
     try {
@@ -38,7 +39,7 @@ export class SessionStoreService {
         localStorage.removeItem(SESSION_KEY);
         return null;
       }
-      return { matchId: session.matchId, route: session.route };
+      return { matchId: session.matchId, route: session.route, joinCode: session.joinCode };
     } catch {
       return null;
     }

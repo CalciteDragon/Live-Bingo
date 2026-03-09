@@ -107,12 +107,12 @@ matchRouter.post('/:id/join', async (req, res) => {
     res.status(409).json({ code: 'MATCH_NOT_JOINABLE', message: 'Match is not in lobby' });
     return;
   }
-  if (state.players.length >= 2) {
-    res.status(409).json({ code: 'MATCH_FULL', message: 'Match already has two players' });
-    return;
-  }
   if (state.players.some((p) => p.clientId === clientId)) {
     res.status(409).json({ code: 'CLIENT_CONFLICT', message: 'Client already joined this match' });
+    return;
+  }
+  if (state.players.length >= 2) {
+    res.status(409).json({ code: 'MATCH_FULL', message: 'Match already has two players' });
     return;
   }
   if (join_code_expires_at < new Date()) {
