@@ -387,42 +387,68 @@ label {
 
 /* ── Bingo Board ─────────────────────────────────────────────── */
 
+/*
+ * The board is a square grid. Making the container itself square with
+ * aspect-ratio:1 + explicit row tracks guarantees all 25 cells are
+ * identical squares regardless of text length.
+ */
 .bingo-board {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
+  grid-template-rows: repeat(5, 1fr);
+  gap: 5px;
   width: 100%;
-  max-width: 520px;
+  max-width: 500px;
+  aspect-ratio: 1;
+  padding: 5px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* Host element must be a block so the button can fill it completely */
+.bingo-board > app-bingo-cell {
+  display: block;
+  min-width: 0;
+  min-height: 0;
 }
 
 .bingo-cell {
-  aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius);
-  border: 2px solid var(--border);
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--radius) - 1px);
+  border: none;
   background: var(--surface);
-  box-shadow: var(--shadow);
-  padding: 0.25rem;
+  padding: 0.35rem;
   cursor: pointer;
-  transition: background-color 0.15s, border-color 0.15s, transform 0.1s;
+  transition: background-color 0.12s, transform 0.08s, box-shadow 0.12s;
   text-align: center;
+  overflow: hidden;
 }
 
 .bingo-cell:hover:not(.bingo-cell--inactive):not(.bingo-cell--opponent) {
-  border-color: var(--accent);
-  transform: scale(1.03);
+  background: #f0fdf4;
+  transform: scale(1.04);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.18);
+  z-index: 1;
 }
 
 .bingo-cell--self {
   background: #dcfce7;
-  border-color: #16a34a;
+  box-shadow: inset 0 0 0 2px #16a34a;
+}
+
+.bingo-cell--self:hover {
+  background: #bbf7d0;
+  transform: scale(1.04);
 }
 
 .bingo-cell--opponent {
   background: #fee2e2;
-  border-color: #dc2626;
+  box-shadow: inset 0 0 0 2px #dc2626;
   cursor: default;
 }
 
@@ -431,18 +457,19 @@ label {
 }
 
 .bingo-cell__goal {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   font-weight: 500;
   line-height: 1.3;
   color: var(--text);
   pointer-events: none;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
+  word-break: break-word;
 }
 
-.bingo-cell--self    .bingo-cell__goal { color: #166534; }
+.bingo-cell--self     .bingo-cell__goal { color: #166534; }
 .bingo-cell--opponent .bingo-cell__goal { color: #991b1b; }
 
 /* ── Match Controls ──────────────────────────────────────────── */
