@@ -7,6 +7,7 @@ import type {
   CreateMatchResponse,
   JoinMatchResponse,
   GetMatchResponse,
+  ResolveJoinCodeResponse,
 } from '@bingo/shared';
 import { CreateMatchBodySchema, JoinMatchBodySchema } from '@bingo/shared';
 import { db } from '../db/index.js';
@@ -106,12 +107,12 @@ matchRouter.post('/:id/join', async (req, res) => {
     res.status(409).json({ code: 'MATCH_NOT_JOINABLE', message: 'Match is not in lobby' });
     return;
   }
-  if (state.players.length >= 2) {
-    res.status(409).json({ code: 'MATCH_FULL', message: 'Match already has two players' });
-    return;
-  }
   if (state.players.some((p) => p.clientId === clientId)) {
     res.status(409).json({ code: 'CLIENT_CONFLICT', message: 'Client already joined this match' });
+    return;
+  }
+  if (state.players.length >= 2) {
+    res.status(409).json({ code: 'MATCH_FULL', message: 'Match already has two players' });
     return;
   }
   if (join_code_expires_at < new Date()) {
@@ -150,6 +151,29 @@ matchRouter.post('/:id/join', async (req, res) => {
   setMatch(matchId, { ...(entry ?? { sockets: new Map() }), state: updatedState });
 
   const response: JoinMatchResponse = { matchId, playerId, state: updatedState };
+  res.status(200).json(response);
+});
+
+// GET /matches/by-code/:code — resolve a join code to a matchId
+matchRouter.get('/by-code/:code', async (req, res) => {
+  const code = req.params['code'] as string;
+
+  const { rows } = await db.query<{ match_id: string; join_code_expires_at: Date }>(
+    'SELECT match_id, join_code_expires_at FROM matches WHERE join_code = $1',
+    [code],
+  );
+
+  if (rows.length === 0) {
+    res.status(404).json({ code: 'MATCH_NOT_FOUND', message: 'No match found for this join code' });
+    return;
+  }
+
+  if (rows[0]!.join_code_expires_at < new Date()) {
+    res.status(410).json({ code: 'JOIN_CODE_EXPIRED', message: 'Join code has expired' });
+    return;
+  }
+
+  const response: ResolveJoinCodeResponse = { matchId: rows[0]!.match_id };
   res.status(200).json(response);
 });
 

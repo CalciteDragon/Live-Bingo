@@ -255,6 +255,54 @@ describe('POST /matches/:id/join', () => {
   });
 });
 
+describe('GET /matches/by-code/:code', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('returns 200 with matchId when code is valid', async () => {
+    (db as any).query.mockResolvedValueOnce({
+      rows: [{ match_id: MATCH_ID, join_code_expires_at: new Date(Date.now() + 10_000) }],
+    });
+
+    const res = await request(app)
+      .get('/matches/by-code/ABC123')
+      .set('X-Client-Id', HOST_CLIENT_ID);
+
+    expect(res.status).toBe(200);
+    expect(res.body.matchId).toBe(MATCH_ID);
+  });
+
+  it('returns 404 MATCH_NOT_FOUND when no match has this code', async () => {
+    (db as any).query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(app)
+      .get('/matches/by-code/BADCOD')
+      .set('X-Client-Id', HOST_CLIENT_ID);
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe('MATCH_NOT_FOUND');
+  });
+
+  it('returns 410 JOIN_CODE_EXPIRED when code is expired', async () => {
+    (db as any).query.mockResolvedValueOnce({
+      rows: [{ match_id: MATCH_ID, join_code_expires_at: new Date(Date.now() - 1000) }],
+    });
+
+    const res = await request(app)
+      .get('/matches/by-code/EXPCOD')
+      .set('X-Client-Id', HOST_CLIENT_ID);
+
+    expect(res.status).toBe(410);
+    expect(res.body.code).toBe('JOIN_CODE_EXPIRED');
+  });
+
+  it('returns 400 when X-Client-Id is missing', async () => {
+    const res = await request(app).get('/matches/by-code/ABC123');
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('GET /matches/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks();

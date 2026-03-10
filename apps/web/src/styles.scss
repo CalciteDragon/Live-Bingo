@@ -1,1 +1,570 @@
-/* You can add global styles to this file, and also import other style files */
+/* ─────────────────────────────────────────────────────────────
+   Design System — Live Bingo
+   ───────────────────────────────────────────────────────────── */
+
+/* Reset */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Tokens */
+:root {
+  --bg:           #f8fafc;
+  --surface:      #ffffff;
+  --border:       #e2e8f0;
+  --text:         #0f172a;
+  --text-muted:   #64748b;
+  --accent:       #16a34a;
+  --accent-hover: #15803d;
+  --danger:       #dc2626;
+  --danger-hover: #b91c1c;
+  --radius:       8px;
+  --shadow:       0 1px 3px rgba(0, 0, 0, .1), 0 1px 2px rgba(0, 0, 0, .06);
+  --nav-h:        56px;
+}
+
+/* Base */
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 16px;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* ── Navigation ─────────────────────────────────────────────── */
+
+.app-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--nav-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.app-nav__logo {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0.25rem 0;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+
+.app-nav__logo:hover { color: var(--accent-hover); }
+
+.app-nav__page {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Page Layout ────────────────────────────────────────────── */
+
+.page {
+  min-height: calc(100vh - var(--nav-h));
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2.5rem 1rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 2rem;
+  width: 100%;
+  max-width: 480px;
+}
+
+/* ── Typography ─────────────────────────────────────────────── */
+
+h1 {
+  font-size: 1.4375rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: var(--text);
+}
+
+/* ── Buttons ────────────────────────────────────────────────── */
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.5rem 1.25rem;
+  transition: background-color 0.15s, color 0.15s, opacity 0.15s;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--bg); }
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+.btn-danger:hover:not(:disabled) { background: var(--danger-hover); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.full-width {
+  display: block;
+  width: 100%;
+}
+
+/* ── Inputs ─────────────────────────────────────────────────── */
+
+input[type="text"],
+input[type="number"],
+select {
+  font-family: inherit;
+  font-size: 0.9375rem;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  color: var(--text);
+  transition: border-color 0.15s;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, .15);
+}
+
+label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 0.375rem;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+/* ── Tabs ───────────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.tabs button {
+  flex: 1;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  padding: 0.625rem 1rem;
+}
+.tabs button.active {
+  background: var(--accent);
+  color: #fff;
+}
+.tabs button:hover:not(.active) {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── Banners ────────────────────────────────────────────────── */
+
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9375rem;
+}
+
+.banner--info {
+  background: #eff6ff;
+  border-bottom: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.banner--warning {
+  background: #fffbeb;
+  border-bottom: 1px solid #fcd34d;
+  color: #92400e;
+}
+
+.banner--error {
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.banner__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* ── Error text ─────────────────────────────────────────────── */
+
+.error-text {
+  color: var(--danger);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+/* ── Modal ──────────────────────────────────────────────────── */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, .15), 0 8px 10px -6px rgba(0, 0, 0, .1);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 360px;
+  margin: 1rem;
+}
+
+.modal h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.modal p {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  margin-bottom: 1.25rem;
+}
+
+.modal__actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+/* ── Player cards ───────────────────────────────────────────── */
+
+.player-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.5rem;
+}
+
+.player-card__alias {
+  flex: 1;
+  font-weight: 600;
+}
+
+/* ── Badges ─────────────────────────────────────────────────── */
+
+.badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.badge--ready        { background: #dcfce7; color: #166534; }
+.badge--not-ready    { background: #f1f5f9; color: #64748b; }
+.badge--connected    { background: #dcfce7; color: #166534; }
+.badge--disconnected { background: #fee2e2; color: #991b1b; }
+
+/* ── Utilities ──────────────────────────────────────────────── */
+
+.text-muted {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.mono {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.9375rem;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 1.25rem 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* ── Match Page ─────────────────────────────────────────────── */
+
+.match-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem 1rem 2rem;
+  min-height: calc(100vh - var(--nav-h));
+}
+
+.match-header {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.match-timer {
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  color: var(--text);
+  letter-spacing: 0.05em;
+}
+
+/* ── Bingo Board ─────────────────────────────────────────────── */
+
+/*
+ * The board is a square grid. Making the container itself square with
+ * aspect-ratio:1 + explicit row tracks guarantees all 25 cells are
+ * identical squares regardless of text length.
+ */
+.bingo-board {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: 5px;
+  width: 100%;
+  max-width: 500px;
+  aspect-ratio: 1;
+  padding: 5px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* Host element must be a block so the button can fill it completely */
+.bingo-board > app-bingo-cell {
+  display: block;
+  min-width: 0;
+  min-height: 0;
+}
+
+.bingo-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(var(--radius) - 1px);
+  border: none;
+  background: var(--surface);
+  padding: 0.35rem;
+  cursor: pointer;
+  transition: background-color 0.12s, transform 0.08s, box-shadow 0.12s;
+  text-align: center;
+  overflow: hidden;
+}
+
+.bingo-cell:hover:not(.bingo-cell--inactive):not(.bingo-cell--opponent) {
+  background: #f0fdf4;
+  transform: scale(1.04);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.18);
+  z-index: 1;
+}
+
+.bingo-cell--self {
+  background: #dcfce7;
+  box-shadow: inset 0 0 0 2px #16a34a;
+}
+
+.bingo-cell--self:hover {
+  background: #bbf7d0;
+  transform: scale(1.04);
+}
+
+.bingo-cell--opponent {
+  background: #fee2e2;
+  box-shadow: inset 0 0 0 2px #dc2626;
+  cursor: default;
+}
+
+.bingo-cell--inactive {
+  cursor: default;
+}
+
+.bingo-cell__goal {
+  font-size: 0.6rem;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--text);
+  pointer-events: none;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+}
+
+.bingo-cell--self     .bingo-cell__goal { color: #166534; }
+.bingo-cell--opponent .bingo-cell__goal { color: #991b1b; }
+
+/* ── Match Controls ──────────────────────────────────────────── */
+
+.match-controls {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ── Results Overlay ─────────────────────────────────────────── */
+
+.results-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.results-overlay__panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, .18), 0 8px 10px -6px rgba(0, 0, 0, .12);
+  padding: 2rem 2rem 1.75rem;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.results-overlay__headline {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+}
+
+.results-overlay__reason {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  padding: 0.2rem 0.75rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: #e0f2fe;
+  color: #075985;
+}
+
+.results-overlay__scores {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.results-overlay__score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.results-overlay__score-alias {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.results-overlay__score-count {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.results-overlay__actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.results-overlay__waiting {
+  text-align: center;
+  margin-top: 0.25rem;
+}

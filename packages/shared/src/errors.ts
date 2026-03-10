@@ -5,7 +5,8 @@ export type RestErrorCode =
   | 'MATCH_NOT_FOUND'      // No match exists with the given ID
   | 'MATCH_FULL'           // Match already has two players
   | 'MATCH_NOT_JOINABLE'   // Match is not in Lobby state
-  | 'CLIENT_CONFLICT';     // clientId already associated with a different player
+  | 'CLIENT_CONFLICT'      // clientId already associated with a different player
+  | 'FORBIDDEN';           // Caller is not a participant in this match
 
 /** Error codes sent over WebSocket for rejected intents. */
 export type WsErrorCode =

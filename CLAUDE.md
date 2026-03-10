@@ -76,6 +76,8 @@ Postgres (Render-managed). After every accepted event, the server persists a ful
 
 Engine unit tests (`packages/engine`) have the highest ROI — test `applyEvent`, `validateEvent`, `checkWin` exhaustively before building the UI. Frontend and backend can be developed in parallel once the engine and event contracts are stable.
 
+**After every behaviour change, update the unit tests in the same task — no exceptions.** This includes removing assertions for behaviours that no longer exist, updating mock setups to match the new contracts, and adding new tests that cover the changed or added behaviour. Never leave tests in a passing-but-stale state where they assert the old behaviour through mocked-away calls.
+
 ### Zod Usage Policy
 
 Zod is used **only** for runtime validation at trust boundaries — data arriving from an untrusted external source that must be parsed before the application can safely reason about it.

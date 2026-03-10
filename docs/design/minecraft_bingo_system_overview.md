@@ -1,6 +1,6 @@
-# Minecraft Bingo 1v1 — System Overview
+# Live Bingo 1v1 — System Overview
 
-> Real-time 1v1 Minecraft Bingo web app built with Angular (SPA), Node.js + TypeScript backend, WebSockets, and Postgres. Deployed on Render.
+> Real-time 1v1 Live Bingo web app built with Angular (SPA), Node.js + TypeScript backend, WebSockets, and Postgres. Deployed on Render.
 
 ---
 

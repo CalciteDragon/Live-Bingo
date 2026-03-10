@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { sessionGuard } from './core/session.guard';
 
 export const routes: Routes = [
   {
@@ -6,15 +7,18 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/home/home').then(m => m.HomeComponent),
   },
   {
-    path: 'lobby/:id',
+    path: 'join/:code',
+    loadComponent: () => import('./pages/join/join').then(m => m.JoinComponent),
+  },
+  {
+    path: 'lobby/:matchId',
+    canActivate: [sessionGuard],
     loadComponent: () => import('./pages/lobby/lobby').then(m => m.LobbyComponent),
   },
   {
-    path: 'match/:id',
+    path: 'match/:matchId',
+    canActivate: [sessionGuard],
     loadComponent: () => import('./pages/match/match').then(m => m.MatchComponent),
   },
-  {
-    path: 'results/:id',
-    loadComponent: () => import('./pages/results/results').then(m => m.ResultsComponent),
-  },
+  { path: '**', redirectTo: '' },
 ];

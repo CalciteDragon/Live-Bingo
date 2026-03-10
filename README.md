@@ -1,6 +1,6 @@
-# Minecraft Bingo 1v1
+# Live Bingo 1v1
 
-Real-time 1v1 Minecraft Bingo web app. Players share a link to join a private lobby, then compete on a shared 5×5 bingo card by manually marking cells. The server is the sole source of truth.
+Real-time 1v1 live Bingo web app (currently only supports minecraft challenge goals). Players share a link to join a private lobby, then compete on a shared 5×5 bingo card by manually marking cells. The server is the sole source of truth.
 
 **Tech stack:** Angular SPA · Node.js + TypeScript · WebSockets · Postgres · Deployed on Render
 

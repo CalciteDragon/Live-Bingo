@@ -8,6 +8,7 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 - [ ] Write integration tests for API endpoints and WebSocket handlers against a real Postgres instance (unit tests with mocked DB already exist) (make sure this is in a seperate command from npm run ci)
 - [ ] Harden idempotency and ACID behavior across in-memory registry and Postgres persistence paths
+- [ ] Add server-side WebSocket heartbeat (ping/pong every ~30s, terminate on no pong) so crashed/killed clients are detected within a bounded time window rather than relying on TCP keepalive (post-MVP)
 
 ## `packages/shared`
 
@@ -19,11 +20,7 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `apps/web`
 
-- [ ] Implement Home page component — collect alias (pre-filled random name) before creating/joining; support joining via join code alone (no full URL required)
-- [ ] Implement Lobby page component — show timer mode, allow host to configure countdown duration; display board seed; allow host to set a custom seed
-- [ ] Implement Match page component — on page refresh, re-hit `GET /matches/:id` for initial state, then reconnect WebSocket to `ws://api/ws?matchId=xxx&clientId=xxx`; server sends `STATE_SYNC` on connect
-- [ ] Implement Results page component
-- [ ] Write unit tests for page components
+- [ ] Post-MVP: show a match miniplayer/quick-return UI when navigating away from an active match
 
 ## CI
 

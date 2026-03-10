@@ -775,7 +775,7 @@ describe('handleDisconnect', () => {
 // =============================================================================
 
 describe('abandonMatch (triggered by abandon timer)', () => {
-  it('sets match status to Abandoned in DB and evicts it from registry', async () => {
+  it('deletes match from DB and evicts it from registry', async () => {
     vi.useFakeTimers();
     setMatch(MATCH_ID, { state: makeTwoPlayerLobbyState(), sockets: new Map() });
 
@@ -797,8 +797,8 @@ describe('abandonMatch (triggered by abandon timer)', () => {
     await flush();
 
     expect(db.query).toHaveBeenCalledWith(
-      expect.stringContaining('abandoned_at'),
-      expect.arrayContaining(['Abandoned', MATCH_ID]),
+      expect.stringContaining('DELETE'),
+      [MATCH_ID],
     );
     expect(getMatch(MATCH_ID)).toBeUndefined();
   });
