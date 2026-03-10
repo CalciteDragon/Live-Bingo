@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { runner } from 'node-pg-migrate';
 
-const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), '../migrations');
+const migrationsDir = join(dirname(fileURLToPath(import.meta.url)), '../../migrations');
 
 const databaseUrl = process.env['DATABASE_URL'];
 if (!databaseUrl) {

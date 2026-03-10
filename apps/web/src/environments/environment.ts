@@ -1,4 +1,4 @@
 export const environment = {
-  apiBaseUrl: 'https://<render-api-service>.onrender.com',
-  wsBaseUrl:  'wss://<render-api-service>.onrender.com',
+  apiBaseUrl: 'https://live-bingo-w7ua.onrender.com',
+  wsBaseUrl:  'wss://live-bingo-w7ua.onrender.com',
 };
