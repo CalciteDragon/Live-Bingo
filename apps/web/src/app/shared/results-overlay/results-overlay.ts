@@ -50,7 +50,7 @@ export class ResultsOverlayComponent {
 
   readonly result    = computed(() => this.state()?.result ?? null);
   readonly winner    = computed(() => this.players().find(p => p.playerId === this.result()?.winnerId) ?? null);
-  readonly isDraw    = computed(() => this.result()?.reason === 'draw');
+  readonly isDraw    = computed(() => this.winner() === null);
   readonly iWon      = computed(() => this.winner()?.playerId === this.playerId());
   readonly winReason = computed(() => this.result()?.reason ?? null);
 
