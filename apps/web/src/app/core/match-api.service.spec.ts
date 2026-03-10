@@ -1,14 +1,14 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClient, provideHttpClient, withInterceptors } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { MatchApiService } from './match-api.service';
+import { MatchApiService, type ApiError } from './match-api.service';
 import { clientIdInterceptor } from './client-id.interceptor';
 import { environment } from '../../environments/environment';
-import type { CreateMatchResponse, JoinMatchResponse, GetMatchResponse, ResolveJoinCodeResponse } from '@bingo/shared';
+import type { CreateMatchResponse, JoinMatchResponse, GetMatchResponse, ResolveJoinCodeResponse, MatchState } from '@bingo/shared';
 
 const BASE = environment.apiBaseUrl;
 
-const mockMatchState: any = {
+const mockMatchState: MatchState = {
   matchId: 'abc',
   status: 'Lobby',
   players: [],
@@ -83,19 +83,19 @@ describe('MatchApiService', () => {
   });
 
   it('maps REST error codes including FORBIDDEN', () => {
-    let err: any;
-    svc.getMatch('abc').subscribe({ error: e => (err = e) });
+    let err: ApiError | undefined;
+    svc.getMatch('abc').subscribe({ error: (e: ApiError) => { err = e; } });
     const req = controller.expectOne(`${BASE}/matches/abc`);
     req.flush({ code: 'FORBIDDEN', message: 'Not a participant' }, { status: 403, statusText: 'Forbidden' });
-    expect(err.code).toBe('FORBIDDEN');
-    expect(err.message).toBe('Not a participant');
+    expect(err!.code).toBe('FORBIDDEN');
+    expect(err!.message).toBe('Not a participant');
   });
 
   it('maps MATCH_NOT_FOUND error', () => {
-    let err: any;
-    svc.getMatch('xyz').subscribe({ error: e => (err = e) });
+    let err: ApiError | undefined;
+    svc.getMatch('xyz').subscribe({ error: (e: ApiError) => { err = e; } });
     const req = controller.expectOne(`${BASE}/matches/xyz`);
     req.flush({ code: 'MATCH_NOT_FOUND', message: 'Not found' }, { status: 404, statusText: 'Not Found' });
-    expect(err.code).toBe('MATCH_NOT_FOUND');
+    expect(err!.code).toBe('MATCH_NOT_FOUND');
   });
 });

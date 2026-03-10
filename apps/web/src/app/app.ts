@@ -74,13 +74,13 @@ export class App {
     if (this.isInProgress()) {
       this.showLeaveWarning.set(true);
     } else {
-      this.router.navigate(['/']);
+      void this.router.navigate(['/']);
     }
   }
 
   confirmLeave(): void {
     this.showLeaveWarning.set(false);
     this.sessionStore.clear();
-    this.router.navigate(['/']);
+    void this.router.navigate(['/']);
   }
 }

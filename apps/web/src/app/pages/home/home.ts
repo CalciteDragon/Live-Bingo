@@ -162,7 +162,7 @@ export class HomeComponent {
         this.sessionStore.playerId.set(res.state.players[0]!.playerId);
         this.sessionStore.joinCode.set(res.joinCode);
         this.sessionStore.matchState.set(res.state);
-        this.router.navigate(['/lobby', res.matchId]);
+        void this.router.navigate(['/lobby', res.matchId]);
       },
       error: (err: ApiError) => {
         this.loading.set(false);
@@ -187,16 +187,16 @@ export class HomeComponent {
     }
 
     this.joinError.set(null);
-    this.router.navigate(['/join', code]);
+    void this.router.navigate(['/join', code]);
   }
 
   rejoin(): void {
     const session = this.rejoinSession();
     if (!session) return;
     if (session.joinCode) {
-      this.router.navigate(['/join', session.joinCode]);
+      void this.router.navigate(['/join', session.joinCode]);
     } else {
-      this.router.navigate([session.route, session.matchId]);
+      void this.router.navigate([session.route, session.matchId]);
     }
   }
 

@@ -120,8 +120,8 @@ export class MatchComponent {
 
     effect(() => {
       const s = this.state();
-      if (s?.status === 'Lobby')     this.router.navigate(['/lobby', s.matchId]);
-      if (s?.status === 'Abandoned') this.router.navigate(['/'], { queryParams: { abandoned: true } });
+      if (s?.status === 'Lobby')     void this.router.navigate(['/lobby', s.matchId]);
+      if (s?.status === 'Abandoned') void this.router.navigate(['/'], { queryParams: { abandoned: true } });
       // Completed: no navigation — results overlay renders in-place
     });
   }

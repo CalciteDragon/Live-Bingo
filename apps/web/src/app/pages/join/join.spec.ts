@@ -222,7 +222,6 @@ describe('JoinComponent — error states', () => {
   });
 
   it('CLIENT_CONFLICT — auto-navigates to lobby when getMatch succeeds', () => {
-    const state           = makeState();
     const mockResolveCode = vi.fn().mockReturnValue(of({ matchId: 'match-99' }));
     const mockJoinMatch   = vi.fn().mockReturnValue(throwError(() => ({ code: 'CLIENT_CONFLICT', message: '' })));
     const mockGetMatch    = vi.fn().mockReturnValue(of({ matchId: 'match-99', playerId: 'p1', state: makeState({ matchId: 'match-99' }) }));

@@ -220,12 +220,12 @@ export class LobbyComponent {
 
     effect(() => {
       const s = this.sessionStore.matchState();
-      if (s?.status === 'InProgress') this.router.navigate(['/match', s.matchId]);
+      if (s?.status === 'InProgress') void this.router.navigate(['/match', s.matchId]);
       if (s?.status === 'Completed') {
         this.sessionStore.clearSession();
-        this.router.navigate(['/match', s.matchId]);
+        void this.router.navigate(['/match', s.matchId]);
       }
-      if (s?.status === 'Abandoned') this.router.navigate(['/'], { queryParams: { abandoned: true } });
+      if (s?.status === 'Abandoned') void this.router.navigate(['/'], { queryParams: { abandoned: true } });
     });
   }
 

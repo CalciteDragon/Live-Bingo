@@ -74,9 +74,9 @@ export class JoinComponent {
     effect(() => {
       const s = this.sessionStore.matchState();
       if (!s) return;
-      if (s.status === 'Lobby')      this.router.navigate(['/lobby', s.matchId]);
-      if (s.status === 'InProgress') this.router.navigate(['/match', s.matchId]);
-      if (s.status === 'Completed')  this.router.navigate(['/match', s.matchId]);
+      if (s.status === 'Lobby')      void this.router.navigate(['/lobby', s.matchId]);
+      if (s.status === 'InProgress') void this.router.navigate(['/match', s.matchId]);
+      if (s.status === 'Completed')  void this.router.navigate(['/match', s.matchId]);
     });
   }
 
@@ -100,7 +100,7 @@ export class JoinComponent {
   navigateToMatch(): void {
     const matchId = this.conflictMatchId();
     if (matchId) {
-      this.router.navigate(['/lobby', matchId]);
+      void this.router.navigate(['/lobby', matchId]);
     }
   }
 

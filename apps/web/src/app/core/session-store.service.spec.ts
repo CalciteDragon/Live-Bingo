@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { SessionStoreService } from './session-store.service';
+import type { MatchState } from '@bingo/shared';
 
 const ALIAS_KEY   = 'bingo_alias';
 const SESSION_KEY = 'bingo_session';
@@ -39,7 +40,7 @@ describe('SessionStoreService', () => {
     svc.matchId.set('m1');
     svc.playerId.set('p1');
     svc.joinCode.set('ABC123');
-    svc.matchState.set({} as any);
+    svc.matchState.set({} as unknown as MatchState);
 
     svc.clear();
 

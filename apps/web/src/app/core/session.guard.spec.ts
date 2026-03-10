@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { type ActivatedRouteSnapshot, Router, convertToParamMap } from '@angular/router';
+import { type ActivatedRouteSnapshot, type RouterStateSnapshot, Router, convertToParamMap } from '@angular/router';
 import { of, throwError, type Observable } from 'rxjs';
 import { sessionGuard } from './session.guard';
 import { SessionStoreService } from './session-store.service';
@@ -81,13 +81,13 @@ afterEach(() => {
 describe('sessionGuard — pass-through', () => {
   it('returns true synchronously when session matchId matches route', () => {
     setupGuard({ sessionMatchId: 'match-1' });
-    const result = TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as any));
+    const result = TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot));
     expect(result).toBe(true);
   });
 
   it('does not call getMatch when session already matches', () => {
     const { mockGetMatch } = setupGuard({ sessionMatchId: 'match-1' });
-    TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as any));
+    void TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot));
     expect(mockGetMatch).not.toHaveBeenCalled();
   });
 });
@@ -95,19 +95,19 @@ describe('sessionGuard — pass-through', () => {
 describe('sessionGuard — reconnect on re-entry', () => {
   it('reconnects socket when matchId matches but socket is disconnected', () => {
     const { mockConnect } = setupGuard({ sessionMatchId: 'match-1', socketStatus: 'disconnected' });
-    TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as any));
+    void TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot));
     expect(mockConnect).toHaveBeenCalledWith('match-1');
   });
 
   it('does not reconnect when matchId matches and socket is already connected', () => {
     const { mockConnect } = setupGuard({ sessionMatchId: 'match-1', socketStatus: 'connected' });
-    TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as any));
+    void TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot));
     expect(mockConnect).not.toHaveBeenCalled();
   });
 
   it('does not reconnect when matchId matches and socket is still connecting', () => {
     const { mockConnect } = setupGuard({ sessionMatchId: 'match-1', socketStatus: 'connecting' });
-    TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as any));
+    void TestBed.runInInjectionContext(() => sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot));
     expect(mockConnect).not.toHaveBeenCalled();
   });
 });
@@ -117,19 +117,19 @@ describe('sessionGuard — hydration (empty store)', () => {
     const state = makeState();
     const { mockGetMatch } = setupGuard({ getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }) });
     TestBed.runInInjectionContext(() =>
-      (sessionGuard(makeRoute('match-1'), null as any) as Observable<boolean>).subscribe(),
+      (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(),
     );
     expect(mockGetMatch).toHaveBeenCalledWith('match-1');
   });
 
   it('writes matchId, playerId, matchState to store on success', () => {
     const state = makeState();
-    const { matchIdSignal, playerIdSignal, matchStateSignal, mockGetMatch } = setupGuard({
+    const { matchIdSignal, playerIdSignal, matchStateSignal } = setupGuard({
       getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }),
     });
     let allowed: boolean | undefined;
     TestBed.runInInjectionContext(() =>
-      (sessionGuard(makeRoute('match-1'), null as any) as Observable<boolean>).subscribe(v => (allowed = v)),
+      (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(v => (allowed = v)),
     );
     expect(allowed).toBe(true);
     expect(matchIdSignal()).toBe('match-1');
@@ -139,11 +139,11 @@ describe('sessionGuard — hydration (empty store)', () => {
 
   it('connects the socket on success', () => {
     const state = makeState();
-    const { mockConnect, mockGetMatch } = setupGuard({
+    const { mockConnect } = setupGuard({
       getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }),
     });
     TestBed.runInInjectionContext(() =>
-      (sessionGuard(makeRoute('match-1'), null as any) as Observable<boolean>).subscribe(),
+      (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(),
     );
     expect(mockConnect).toHaveBeenCalledWith('match-1');
   });
@@ -155,7 +155,7 @@ describe('sessionGuard — hydration (empty store)', () => {
       persistedJoinCode: 'SAVED1',
     });
     TestBed.runInInjectionContext(() =>
-      (sessionGuard(makeRoute('match-1'), null as any) as Observable<boolean>).subscribe(),
+      (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(),
     );
     expect(joinCodeSignal()).toBe('SAVED1');
   });
@@ -166,7 +166,7 @@ describe('sessionGuard — hydration (empty store)', () => {
       getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }),
     });
     TestBed.runInInjectionContext(() =>
-      (sessionGuard(makeRoute('match-1'), null as any) as Observable<boolean>).subscribe(),
+      (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(),
     );
     expect(joinCodeSignal()).toBeNull();
   });
@@ -180,7 +180,7 @@ describe('sessionGuard — hydration (mismatched store)', () => {
       getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }),
     });
     TestBed.runInInjectionContext(() =>
-      (sessionGuard(makeRoute('match-1'), null as any) as Observable<boolean>).subscribe(),
+      (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(),
     );
     expect(mockGetMatch).toHaveBeenCalledWith('match-1');
   });
@@ -193,7 +193,7 @@ describe('sessionGuard — error cases', () => {
     });
     let allowed: boolean | undefined;
     TestBed.runInInjectionContext(() =>
-      (sessionGuard(makeRoute('match-1'), null as any) as Observable<boolean>).subscribe(v => (allowed = v)),
+      (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(v => (allowed = v)),
     );
     expect(allowed).toBe(false);
     expect(mockNavigate).toHaveBeenCalledWith(['/'], { queryParams: { error: 'forbidden' } });
@@ -205,7 +205,7 @@ describe('sessionGuard — error cases', () => {
     });
     let allowed: boolean | undefined;
     TestBed.runInInjectionContext(() =>
-      (sessionGuard(makeRoute('match-1'), null as any) as Observable<boolean>).subscribe(v => (allowed = v)),
+      (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(v => (allowed = v)),
     );
     expect(allowed).toBe(false);
     expect(mockNavigate).toHaveBeenCalledWith(['/']);

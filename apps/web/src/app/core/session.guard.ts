@@ -22,7 +22,7 @@ export const sessionGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
   const matchId = route.paramMap.get('matchId');
 
   if (!matchId) {
-    router.navigate(['/']);
+    void router.navigate(['/']);
     return false;
   }
 
@@ -52,9 +52,9 @@ export const sessionGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
         'code' in err &&
         (err as { code: string }).code === 'FORBIDDEN';
       if (isForbidden) {
-        router.navigate(['/'], { queryParams: { error: 'forbidden' } });
+        void router.navigate(['/'], { queryParams: { error: 'forbidden' } });
       } else {
-        router.navigate(['/']);
+        void router.navigate(['/']);
       }
       return of(false as const);
     }),

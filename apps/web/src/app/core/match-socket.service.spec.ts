@@ -16,18 +16,18 @@ class MockWebSocket {
   readyState: number = MockWebSocket.CONNECTING;
   sentMessages: string[] = [];
 
-  private listeners: Record<string, ((e: any) => void)[]> = {};
+  private listeners: Record<string, ((e: unknown) => void)[]> = {};
 
   constructor(url: string) {
     this.url = url;
     MockWebSocket.instances.push(this);
   }
 
-  addEventListener(event: string, cb: (e: any) => void) {
+  addEventListener(event: string, cb: (e: unknown) => void): void {
     (this.listeners[event] ??= []).push(cb);
   }
 
-  removeEventListener(event: string, cb: (e: any) => void) {
+  removeEventListener(event: string, cb: (e: unknown) => void): void {
     this.listeners[event] = (this.listeners[event] ?? []).filter(fn => fn !== cb);
   }
 
@@ -63,7 +63,7 @@ describe('MatchSocketService', () => {
   beforeEach(() => {
     localStorage.clear();
     MockWebSocket.instances = [];
-    (globalThis as any).WebSocket = MockWebSocket;
+    (globalThis as Record<string, unknown>).WebSocket = MockWebSocket;
 
     TestBed.configureTestingModule({});
     svc      = TestBed.inject(MatchSocketService);
@@ -72,7 +72,7 @@ describe('MatchSocketService', () => {
 
   afterEach(() => {
     localStorage.clear();
-    delete (globalThis as any).WebSocket;
+    delete (globalThis as Record<string, unknown>).WebSocket;
   });
 
   it('starts in disconnected state', () => {
