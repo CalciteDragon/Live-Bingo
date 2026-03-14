@@ -29,6 +29,7 @@ const MATCH_ID = '00000000-0000-0000-0000-000000000099';
 function makeState(overrides: Partial<MatchState> = {}): MatchState {
   return {
     matchId: MATCH_ID,
+    matchMode: 'ffa',
     status: 'Lobby',
     players: [{ playerId: HOST_PLAYER_ID, clientId: HOST_CLIENT_ID, slot: 1, alias: 'Host', connected: false }],
     readyStates: {},

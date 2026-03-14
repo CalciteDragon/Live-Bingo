@@ -38,6 +38,7 @@ matchRouter.post('/', async (req, res) => {
   const card = generateBoard(seed);
   const state: MatchState = {
     matchId,
+    matchMode: 'ffa',
     status: 'Lobby',
     players: [{ playerId, clientId, slot: 1, alias, connected: false }],
     readyStates: {},

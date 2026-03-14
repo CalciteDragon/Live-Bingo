@@ -34,6 +34,7 @@ function makeCard(overrides?: Partial<BingoCard>): BingoCard {
 function makeState(overrides?: Partial<MatchState>): MatchState {
   return {
     matchId: 'match-id',
+    matchMode: 'ffa',
     status: 'Lobby',
     players: [HOST, GUEST],
     readyStates: {},

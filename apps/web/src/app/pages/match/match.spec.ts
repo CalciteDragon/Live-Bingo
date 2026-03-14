@@ -17,6 +17,7 @@ function makeCell(index: number, markedBy: string | null = null): Cell {
 function makeState(overrides: Partial<MatchState> = {}): MatchState {
   return {
     matchId: 'match-1',
+    matchMode: 'ffa',
     status: 'InProgress',
     players: [
       { playerId: 'p1', clientId: 'c1', slot: 1, alias: 'Host',  connected: true },

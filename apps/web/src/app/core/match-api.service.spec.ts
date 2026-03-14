@@ -10,6 +10,7 @@ const BASE = environment.apiBaseUrl;
 
 const mockMatchState: MatchState = {
   matchId: 'abc',
+  matchMode: 'ffa',
   status: 'Lobby',
   players: [],
   readyStates: {},
