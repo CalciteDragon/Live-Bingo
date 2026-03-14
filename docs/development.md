@@ -50,6 +50,15 @@ npm run test --workspace=packages/engine
 
 ---
 
+## Lint
+
+```bash
+# Run ESLint across the repo
+npm run lint
+```
+
+---
+
 ## Database
 
 ```bash
