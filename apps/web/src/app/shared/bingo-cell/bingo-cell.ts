@@ -7,8 +7,8 @@ import type { Cell } from '@bingo/shared';
   template: `
     <button
       class="bingo-cell"
-      [class.bingo-cell--self]="isSelf()"
-      [class.bingo-cell--opponent]="isOpponent()"
+      [class.bingo-cell--marked]="cell().markedBy !== null"
+      [style]="cellStyle()"
       [class.bingo-cell--inactive]="!isActive()"
       (click)="onClick()"
     >
@@ -17,19 +17,20 @@ import type { Cell } from '@bingo/shared';
   `,
 })
 export class BingoCellComponent {
-  readonly cell       = input.required<Cell>();
-  readonly myPlayerId = input.required<string>();
-  readonly isActive   = input.required<boolean>();
+  readonly cell            = input.required<Cell>();
+  readonly playerColorMap  = input.required<Record<string, string>>();
+  readonly isActive        = input.required<boolean>();
 
   readonly cellClick = output<number>();
 
-  protected isSelf(): boolean {
-    return this.cell().markedBy === this.myPlayerId();
+  protected cellColor(): string | null {
+    const m = this.cell().markedBy;
+    return m ? (this.playerColorMap()[m] ?? null) : null;
   }
 
-  protected isOpponent(): boolean {
-    const m = this.cell().markedBy;
-    return m !== null && m !== this.myPlayerId();
+  protected cellStyle(): { '--cell-color': string } | Record<string, never> {
+    const color = this.cellColor();
+    return color ? { '--cell-color': color } : {};
   }
 
   protected onClick(): void {

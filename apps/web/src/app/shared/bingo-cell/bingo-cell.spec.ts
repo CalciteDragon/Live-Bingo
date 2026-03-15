@@ -8,47 +8,47 @@ function makeCell(overrides: Partial<Cell> = {}): Cell {
 
 afterEach(() => TestBed.resetTestingModule());
 
-describe('BingoCellComponent — CSS classes', () => {
-  it('has no marker classes when cell is unmarked', () => {
+describe('BingoCellComponent — CSS classes and style', () => {
+  it('has no bingo-cell--marked class and no --cell-color style when cell is unmarked', () => {
     const fixture = TestBed.createComponent(BingoCellComponent);
     fixture.componentRef.setInput('cell', makeCell());
-    fixture.componentRef.setInput('myPlayerId', 'p1');
+    fixture.componentRef.setInput('playerColorMap', { p1: '#4a9eff' });
     fixture.componentRef.setInput('isActive', true);
     fixture.detectChanges();
 
     const btn: HTMLButtonElement = fixture.nativeElement.querySelector('button');
-    expect(btn.classList.contains('bingo-cell--self')).toBe(false);
-    expect(btn.classList.contains('bingo-cell--opponent')).toBe(false);
+    expect(btn.classList.contains('bingo-cell--marked')).toBe(false);
+    expect(btn.style.getPropertyValue('--cell-color')).toBe('');
   });
 
-  it('adds bingo-cell--self when marked by me', () => {
+  it('has bingo-cell--marked and --cell-color #4a9eff when marked by p1', () => {
     const fixture = TestBed.createComponent(BingoCellComponent);
     fixture.componentRef.setInput('cell', makeCell({ markedBy: 'p1' }));
-    fixture.componentRef.setInput('myPlayerId', 'p1');
+    fixture.componentRef.setInput('playerColorMap', { p1: '#4a9eff' });
     fixture.componentRef.setInput('isActive', true);
     fixture.detectChanges();
 
     const btn: HTMLButtonElement = fixture.nativeElement.querySelector('button');
-    expect(btn.classList.contains('bingo-cell--self')).toBe(true);
-    expect(btn.classList.contains('bingo-cell--opponent')).toBe(false);
+    expect(btn.classList.contains('bingo-cell--marked')).toBe(true);
+    expect(btn.style.getPropertyValue('--cell-color')).toBe('#4a9eff');
   });
 
-  it('adds bingo-cell--opponent when marked by opponent', () => {
+  it('has --cell-color #51cf66 when marked by p3 (slot 3)', () => {
     const fixture = TestBed.createComponent(BingoCellComponent);
-    fixture.componentRef.setInput('cell', makeCell({ markedBy: 'p2' }));
-    fixture.componentRef.setInput('myPlayerId', 'p1');
+    fixture.componentRef.setInput('cell', makeCell({ markedBy: 'p3' }));
+    fixture.componentRef.setInput('playerColorMap', { p3: '#51cf66' });
     fixture.componentRef.setInput('isActive', true);
     fixture.detectChanges();
 
     const btn: HTMLButtonElement = fixture.nativeElement.querySelector('button');
-    expect(btn.classList.contains('bingo-cell--self')).toBe(false);
-    expect(btn.classList.contains('bingo-cell--opponent')).toBe(true);
+    expect(btn.classList.contains('bingo-cell--marked')).toBe(true);
+    expect(btn.style.getPropertyValue('--cell-color')).toBe('#51cf66');
   });
 
   it('adds bingo-cell--inactive when isActive is false', () => {
     const fixture = TestBed.createComponent(BingoCellComponent);
     fixture.componentRef.setInput('cell', makeCell());
-    fixture.componentRef.setInput('myPlayerId', 'p1');
+    fixture.componentRef.setInput('playerColorMap', {});
     fixture.componentRef.setInput('isActive', false);
     fixture.detectChanges();
 
@@ -59,7 +59,7 @@ describe('BingoCellComponent — CSS classes', () => {
   it('does not add bingo-cell--inactive when isActive is true', () => {
     const fixture = TestBed.createComponent(BingoCellComponent);
     fixture.componentRef.setInput('cell', makeCell());
-    fixture.componentRef.setInput('myPlayerId', 'p1');
+    fixture.componentRef.setInput('playerColorMap', {});
     fixture.componentRef.setInput('isActive', true);
     fixture.detectChanges();
 
@@ -72,7 +72,7 @@ describe('BingoCellComponent — click emission', () => {
   it('emits cellClick with cell.index when active', () => {
     const fixture = TestBed.createComponent(BingoCellComponent);
     fixture.componentRef.setInput('cell', makeCell({ index: 7 }));
-    fixture.componentRef.setInput('myPlayerId', 'p1');
+    fixture.componentRef.setInput('playerColorMap', {});
     fixture.componentRef.setInput('isActive', true);
     fixture.detectChanges();
 
@@ -87,7 +87,7 @@ describe('BingoCellComponent — click emission', () => {
   it('does not emit cellClick when inactive', () => {
     const fixture = TestBed.createComponent(BingoCellComponent);
     fixture.componentRef.setInput('cell', makeCell({ index: 7 }));
-    fixture.componentRef.setInput('myPlayerId', 'p1');
+    fixture.componentRef.setInput('playerColorMap', {});
     fixture.componentRef.setInput('isActive', false);
     fixture.detectChanges();
 
@@ -102,7 +102,7 @@ describe('BingoCellComponent — click emission', () => {
   it('renders the cell goal text', () => {
     const fixture = TestBed.createComponent(BingoCellComponent);
     fixture.componentRef.setInput('cell', makeCell({ goal: 'Kill the Ender Dragon' }));
-    fixture.componentRef.setInput('myPlayerId', 'p1');
+    fixture.componentRef.setInput('playerColorMap', {});
     fixture.componentRef.setInput('isActive', true);
     fixture.detectChanges();
 

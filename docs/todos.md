@@ -23,9 +23,12 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 - [ ] Post-MVP: show a match miniplayer/quick-return UI when navigating away from an active match
 - [ ] Post-MVP: show connected/disconnected status indicators for players in-match
+- [ ] Post-MVP: improve opponent cell UX — currently opponent cells accept pointer cursor; add cursor hint that the cell is unclickable
 
 ## CI
 
 - [ ] Add Postgres service to `test-api` job once DB integration is implemented
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
+- stale clients should be explicitly disconnected and sent to home screen on new connection (multiple clients can be open in two browser tabs in lobby. only one is connected, but the other can still change ready status)
+- host kick player button and auto-leave after 30 seconds when disconnected in lobby

@@ -17,12 +17,13 @@ import { ClientIdService } from '../../core/client-id.service';
 import { TimerService } from '../../core/timer.service';
 import { BingoCellComponent } from '../../shared/bingo-cell/bingo-cell';
 import { ResultsOverlayComponent } from '../../shared/results-overlay/results-overlay';
-import { buildClientMessage, isHost } from '../../core/match.helpers';
+import { PlayerPanelComponent } from '../../shared/player-panel/player-panel';
+import { buildClientMessage, buildPlayerColorMap, isHost } from '../../core/match.helpers';
 
 @Component({
   selector: 'app-match',
   standalone: true,
-  imports: [AsyncPipe, BingoCellComponent, ResultsOverlayComponent],
+  imports: [AsyncPipe, BingoCellComponent, ResultsOverlayComponent, PlayerPanelComponent],
   template: `
     @if (isReconnecting()) {
       <div class="banner banner--warning">
@@ -44,15 +45,19 @@ import { buildClientMessage, isHost } from '../../core/match.helpers';
         <div class="match-timer">{{ displayTimer$ | async }}</div>
       </div>
 
-      <div class="bingo-board">
-        @for (cell of cells(); track cell.index) {
-          <app-bingo-cell
-            [cell]="cell"
-            [myPlayerId]="playerId() ?? ''"
-            [isActive]="isActive()"
-            (cellClick)="onCellClick($event)"
-          />
-        }
+      <div class="match-layout">
+        <app-player-panel />
+
+        <div class="bingo-board">
+          @for (cell of cells(); track cell.index) {
+            <app-bingo-cell
+              [cell]="cell"
+              [playerColorMap]="playerColorMap()"
+              [isActive]="isActive()"
+              (cellClick)="onCellClick($event)"
+            />
+          }
+        </div>
       </div>
 
       @if (isActive() && amHost()) {
@@ -89,6 +94,11 @@ export class MatchComponent {
     const s   = this.state();
     const pid = this.playerId();
     return s != null && pid != null ? isHost(s, pid) : false;
+  });
+
+  readonly playerColorMap = computed<Record<string, string>>(() => {
+    const s = this.state();
+    return s ? buildPlayerColorMap(s) : {};
   });
 
   readonly isReconnecting = computed(() => this.socket.isReconnecting());
@@ -132,7 +142,7 @@ export class MatchComponent {
     const matchId = this.sessionStore.matchId()!;
 
     if (!cell) return;
-    if (cell.markedBy !== null && cell.markedBy !== pid) return; // opponent's — no-op
+    if (cell.markedBy !== null && cell.markedBy !== pid) return; // another player's — no-op
 
     if (cell.markedBy === pid) {
       this.socket.send(buildClientMessage('UNMARK_CELL', matchId, this.clientId, { cellIndex: index }));

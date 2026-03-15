@@ -254,6 +254,30 @@ describe('MatchComponent — computed signals', () => {
     const { component } = setup(makeState({ status: 'Completed', result: { winnerId: 'p1', reason: 'line' } }));
     expect(component.isActive()).toBe(false);
   });
+
+  it('playerColorMap returns a color for each player keyed by playerId', () => {
+    const { component } = setup(makeState());
+    const colorMap = component.playerColorMap();
+    expect(colorMap['p1']).toBe('#4a9eff');
+    expect(colorMap['p2']).toBe('#ff6b6b');
+  });
+
+  it('playerColorMap returns empty map when matchState is null', () => {
+    const { component } = setup(null);
+    expect(component.playerColorMap()).toEqual({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Player panel
+// ---------------------------------------------------------------------------
+
+describe('MatchComponent — player panel', () => {
+  it('renders app-player-panel', () => {
+    const { fixture } = setup(makeState({ status: 'InProgress' }));
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-player-panel')).not.toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

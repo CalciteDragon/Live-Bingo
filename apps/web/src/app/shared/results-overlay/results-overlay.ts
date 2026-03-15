@@ -2,7 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { SessionStoreService } from '../../core/session-store.service';
 import { MatchSocketService } from '../../core/match-socket.service';
 import { ClientIdService } from '../../core/client-id.service';
-import { buildClientMessage, isHost } from '../../core/match.helpers';
+import { buildClientMessage, getPlayerRankings, isHost, ordinalLabel } from '../../core/match.helpers';
 
 @Component({
   selector: 'app-results-overlay',
@@ -49,14 +49,18 @@ export class ResultsOverlayComponent {
   private readonly players  = computed(() => this.state()?.players ?? []);
 
   readonly result    = computed(() => this.state()?.result ?? null);
-  readonly winner    = computed(() => this.players().find(p => p.playerId === this.result()?.winnerId) ?? null);
-  readonly isDraw    = computed(() => this.winner() === null);
-  readonly iWon      = computed(() => this.winner()?.playerId === this.playerId());
   readonly winReason = computed(() => this.result()?.reason ?? null);
 
   readonly headline = computed(() => {
-    if (this.isDraw()) return "It's a draw!";
-    return this.iWon() ? 'You won!' : 'You lost.';
+    const result = this.result();
+    if (!result) return '';
+    if (result.winnerId === null) return "It's a draw!";
+    if (result.winnerId === this.playerId()) return 'You won!';
+    const s   = this.state();
+    const pid = this.playerId()!;
+    if (!s) return 'You lost.';
+    const myRank = getPlayerRankings(s, pid).find(r => r.playerId === pid)?.rank ?? 2;
+    return `You came ${ordinalLabel(myRank)}!`;
   });
 
   readonly reasonLabel = computed(() => {
@@ -80,11 +84,13 @@ export class ResultsOverlayComponent {
   });
 
   readonly scoreSummary = computed(() =>
-    this.players().map(p => ({
-      playerId: p.playerId,
-      alias:    p.alias ?? 'Unknown',
-      count:    this.cellCounts()[p.playerId] ?? 0,
-    })),
+    this.players()
+      .map(p => ({
+        playerId: p.playerId,
+        alias:    p.alias ?? 'Unknown',
+        count:    this.cellCounts()[p.playerId] ?? 0,
+      }))
+      .sort((a, b) => b.count - a.count),
   );
 
   readonly amHost = computed(() => {

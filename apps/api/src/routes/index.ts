@@ -134,8 +134,7 @@ matchRouter.post('/:id/join', async (req, res) => {
     await client.query('BEGIN');
     const { rows: slotRows } = await client.query<{ next_slot: number }>(
       `SELECT COALESCE(MAX(slot), 0) + 1 AS next_slot
-       FROM match_players WHERE match_id = $1
-       FOR UPDATE`,
+       FROM (SELECT slot FROM match_players WHERE match_id = $1 FOR UPDATE) AS locked`,
       [matchId],
     );
     const slot = slotRows[0]!.next_slot as Slot;
