@@ -10,6 +10,8 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Harden idempotency and ACID behavior across in-memory registry and Postgres persistence paths
 - [ ] Add server-side WebSocket heartbeat (ping/pong every ~30s, terminate on no pong) so crashed/killed clients are detected within a bounded time window rather than relying on TCP keepalive (post-MVP)
 - [ ] Bug: lobby ready-state desync — when a player disconnects, their ready state is not cleared, so the other client may see a stale "ready" indicator that doesn't reflect the disconnected player's state
+- [ ] On new WebSocket connection, explicitly disconnect and invalidate any pre-existing stale connection for the same clientId (e.g. second browser tab); send that stale client a redirect/error so it navigates to home
+- [ ] Host kick-player: add a KICK_PLAYER intent (lobby only); auto-kick a player after 30 s of disconnect in lobby
 
 ## `packages/shared`
 
@@ -30,5 +32,3 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Add Postgres service to `test-api` job once DB integration is implemented
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
-- stale clients should be explicitly disconnected and sent to home screen on new connection (multiple clients can be open in two browser tabs in lobby. only one is connected, but the other can still change ready status)
-- host kick player button and auto-leave after 30 seconds when disconnected in lobby
