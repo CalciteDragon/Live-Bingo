@@ -2,7 +2,9 @@ export type MatchStatus = 'Lobby' | 'InProgress' | 'Completed' | 'Abandoned';
 
 export type TimerMode = 'stopwatch' | 'countdown';
 
-export type Slot = 1 | 2;
+export type Slot = 1 | 2 | 3 | 4;
+
+export type MatchMode = 'ffa'; // | 'teams_2v2' when team mode is added
 
 export type WinReason = 'line' | 'majority' | 'timer_expiry' | 'draw';
 
@@ -48,6 +50,7 @@ export interface MatchResult {
  */
 export interface MatchState {
   matchId: string;
+  matchMode: MatchMode; // dispatch point for mode-specific logic
   status: MatchStatus;
   players: Player[];
   readyStates: Record<string, boolean>; // playerId → ready

@@ -1,4 +1,4 @@
-import type { MatchResult } from '@bingo/shared';
+import { resolveTimerWinner } from '@bingo/engine';
 import { db } from '../db/index.js';
 import { getMatch, setMatch, broadcastToMatch, deleteMatch } from '../match-registry.js';
 
@@ -43,18 +43,7 @@ async function expireCountdown(matchId: string): Promise<void> {
 
   entry.countdownTimer = undefined;
 
-  const [p1, p2] = entry.state.players;
-  const count = (playerId: string) =>
-    entry.state.card.cells.filter((c) => c.markedBy === playerId).length;
-  const c1 = count(p1!.playerId);
-  const c2 = count(p2!.playerId);
-
-  let winnerId: string | null;
-  if (c1 > c2)      winnerId = p1!.playerId;
-  else if (c2 > c1) winnerId = p2!.playerId;
-  else              winnerId = null; // draw
-
-  const result: MatchResult = { winnerId, reason: 'timer_expiry' };
+  const result = resolveTimerWinner(entry.state);
   const newState = { ...entry.state, status: 'Completed' as const, result };
 
   await db.query(

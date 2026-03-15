@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyEvent, validateEvent, checkWin, EngineError } from '../engine.js';
+import { applyEvent, validateEvent, checkWin, resolveTimerWinner, EngineError } from '../engine.js';
 import type { MatchState, Cell, Player, BingoCard } from '@bingo/shared';
 import type { ClientMessage } from '@bingo/shared';
 
@@ -34,6 +34,7 @@ function makeCard(overrides?: Partial<BingoCard>): BingoCard {
 function makeState(overrides?: Partial<MatchState>): MatchState {
   return {
     matchId: 'match-id',
+    matchMode: 'ffa',
     status: 'Lobby',
     players: [HOST, GUEST],
     readyStates: {},
@@ -183,6 +184,23 @@ describe('validateEvent', () => {
         readyStates: { [HOST_ID]: true, [GUEST_ID]: true },
       });
       expectEngineError(() => validateEvent(state, startMatch()), 'INVALID_STATE');
+    });
+    it('passes with 3 players all ready', () => {
+      const p3: Player = { playerId: 'player-3', clientId: 'client-3', slot: 3, alias: null, connected: true };
+      const state = makeState({
+        players: [HOST, GUEST, p3],
+        readyStates: { [HOST_ID]: true, [GUEST_ID]: true, 'player-3': true },
+      });
+      expect(() => validateEvent(state, startMatch())).not.toThrow();
+    });
+    it('passes with 4 players all ready', () => {
+      const p3: Player = { playerId: 'player-3', clientId: 'client-3', slot: 3, alias: null, connected: true };
+      const p4: Player = { playerId: 'player-4', clientId: 'client-4', slot: 4, alias: null, connected: true };
+      const state = makeState({
+        players: [HOST, GUEST, p3, p4],
+        readyStates: { [HOST_ID]: true, [GUEST_ID]: true, 'player-3': true, 'player-4': true },
+      });
+      expect(() => validateEvent(state, startMatch())).not.toThrow();
     });
   });
 
@@ -583,5 +601,117 @@ describe('checkWin', () => {
     );
     const state = makeState({ status: 'InProgress', card: makeCard({ cells }) });
     expect(checkWin(state)).toBeNull();
+  });
+
+  it('majority triggers when blanks < (1st_score - 2nd_score)', () => {
+    // HOST=14, GUEST=5, blanks=6: diff=9, 6<9 → triggers
+    // Cells avoid completing any row/column/diagonal for either player.
+    // HOST: 1-4, 6-9, 11-14, 16-17; GUEST: 5,15,18,19,20; blank: 0,10,21-24
+    const hostCells = new Set([1,2,3,4, 6,7,8,9, 11,12,13,14, 16,17]);
+    const guestCells = new Set([5,15,18,19,20]);
+    const cells = Array.from({ length: 25 }, (_, i) =>
+      makeCell(i, hostCells.has(i) ? HOST_ID : guestCells.has(i) ? GUEST_ID : null),
+    );
+    const state = makeState({ status: 'InProgress', card: makeCard({ cells }) });
+    expect(checkWin(state)).toEqual({ winnerId: HOST_ID, reason: 'majority' });
+  });
+
+  it('majority does not trigger when blanks equals (1st_score - 2nd_score)', () => {
+    // HOST=10, GUEST=5, blanks=10: diff=5, 10<5=false (boundary — exactly equal, no win)
+    // HOST: 0-3, 5-8, 10-11; GUEST: 12-14, 16-17; blank: 4,9,15,18-24
+    const hostCells = new Set([0,1,2,3, 5,6,7,8, 10,11]);
+    const guestCells = new Set([12,13,14, 16,17]);
+    const cells = Array.from({ length: 25 }, (_, i) =>
+      makeCell(i, hostCells.has(i) ? HOST_ID : guestCells.has(i) ? GUEST_ID : null),
+    );
+    const state = makeState({ status: 'InProgress', card: makeCard({ cells }) });
+    expect(checkWin(state)).toBeNull();
+  });
+
+  it('majority triggers for leading player in a 3-player match', () => {
+    const P3_ID = 'player-3';
+    const p3: Player = { playerId: P3_ID, clientId: 'client-3', slot: 3, alias: null, connected: true };
+    // HOST=12, GUEST=4, P3=2, blanks=7: diff=12-4=8, 7<8 → triggers HOST win
+    // HOST: 0-3, 5-8, 10-13; GUEST: 15-18; P3: 19,20; blank: 4,9,14,21-24
+    const hostCells = new Set([0,1,2,3, 5,6,7,8, 10,11,12,13]);
+    const guestCells = new Set([15,16,17,18]);
+    const p3Cells = new Set([19,20]);
+    const cells = Array.from({ length: 25 }, (_, i) =>
+      makeCell(i, hostCells.has(i) ? HOST_ID : guestCells.has(i) ? GUEST_ID : p3Cells.has(i) ? P3_ID : null),
+    );
+    const state = makeState({
+      status: 'InProgress',
+      players: [HOST, GUEST, p3],
+      card: makeCard({ cells }),
+    });
+    expect(checkWin(state)).toEqual({ winnerId: HOST_ID, reason: 'majority' });
+  });
+
+  it('majority does not trigger in 3-player match when 2nd place is close enough', () => {
+    const P3_ID = 'player-3';
+    const p3: Player = { playerId: P3_ID, clientId: 'client-3', slot: 3, alias: null, connected: true };
+    // HOST=10, GUEST=6, P3=4, blanks=5: diff=10-6=4, 5<4=false
+    // HOST: 0-3, 5-6, 10-13; GUEST: 7-9, 14-16; P3: 17-20; blank: 4,21-24
+    const hostCells = new Set([0,1,2,3, 5,6, 10,11,12,13]);
+    const guestCells = new Set([7,8,9, 14,15,16]);
+    const p3Cells = new Set([17,18,19,20]);
+    const cells = Array.from({ length: 25 }, (_, i) =>
+      makeCell(i, hostCells.has(i) ? HOST_ID : guestCells.has(i) ? GUEST_ID : p3Cells.has(i) ? P3_ID : null),
+    );
+    const state = makeState({
+      status: 'InProgress',
+      players: [HOST, GUEST, p3],
+      card: makeCard({ cells }),
+    });
+    expect(checkWin(state)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveTimerWinner
+// ---------------------------------------------------------------------------
+
+describe('resolveTimerWinner', () => {
+  it('returns the player with the most cells as winner', () => {
+    const cells = Array.from({ length: 25 }, (_, i) =>
+      makeCell(i, i < 10 ? HOST_ID : i < 13 ? GUEST_ID : null),
+    );
+    const state = makeState({ status: 'InProgress', card: makeCard({ cells }) });
+    expect(resolveTimerWinner(state)).toEqual({ winnerId: HOST_ID, reason: 'timer_expiry' });
+  });
+
+  it('returns winnerId null on a tie for first', () => {
+    const cells = Array.from({ length: 25 }, (_, i) =>
+      makeCell(i, i < 8 ? HOST_ID : i < 16 ? GUEST_ID : null),
+    );
+    const state = makeState({ status: 'InProgress', card: makeCard({ cells }) });
+    expect(resolveTimerWinner(state)).toEqual({ winnerId: null, reason: 'timer_expiry' });
+  });
+
+  it('returns winner in a 3-player match', () => {
+    const P3_ID = 'player-3';
+    const p3: Player = { playerId: P3_ID, clientId: 'client-3', slot: 3, alias: null, connected: true };
+    const cells = Array.from({ length: 25 }, (_, i) =>
+      makeCell(i, i < 10 ? HOST_ID : i < 16 ? GUEST_ID : i < 19 ? P3_ID : null),
+    );
+    const state = makeState({ status: 'InProgress', players: [HOST, GUEST, p3], card: makeCard({ cells }) });
+    expect(resolveTimerWinner(state)).toEqual({ winnerId: HOST_ID, reason: 'timer_expiry' });
+  });
+
+  it('returns null when multiple players tie for first in a 3-player match', () => {
+    const P3_ID = 'player-3';
+    const p3: Player = { playerId: P3_ID, clientId: 'client-3', slot: 3, alias: null, connected: true };
+    // HOST=8, GUEST=8, P3=0 — HOST and GUEST tied for first
+    const cells = Array.from({ length: 25 }, (_, i) =>
+      makeCell(i, i < 8 ? HOST_ID : i < 16 ? GUEST_ID : null),
+    );
+    const state = makeState({ status: 'InProgress', players: [HOST, GUEST, p3], card: makeCard({ cells }) });
+    expect(resolveTimerWinner(state)).toEqual({ winnerId: null, reason: 'timer_expiry' });
+  });
+
+  it('returns null on an empty board', () => {
+    const state = makeState({ status: 'InProgress' });
+    // all players at 0 — tie for first
+    expect(resolveTimerWinner(state)).toEqual({ winnerId: null, reason: 'timer_expiry' });
   });
 });

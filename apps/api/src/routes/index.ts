@@ -4,6 +4,7 @@ import { generateBoard } from '@bingo/engine';
 import type {
   MatchState,
   Player,
+  Slot,
   CreateMatchResponse,
   JoinMatchResponse,
   GetMatchResponse,
@@ -38,6 +39,7 @@ matchRouter.post('/', async (req, res) => {
   const card = generateBoard(seed);
   const state: MatchState = {
     matchId,
+    matchMode: 'ffa',
     status: 'Lobby',
     players: [{ playerId, clientId, slot: 1, alias, connected: false }],
     readyStates: {},
@@ -111,8 +113,8 @@ matchRouter.post('/:id/join', async (req, res) => {
     res.status(409).json({ code: 'CLIENT_CONFLICT', message: 'Client already joined this match' });
     return;
   }
-  if (state.players.length >= 2) {
-    res.status(409).json({ code: 'MATCH_FULL', message: 'Match already has two players' });
+  if (state.players.length >= 4) {
+    res.status(409).json({ code: 'MATCH_FULL', message: 'Match is full' });
     return;
   }
   if (join_code_expires_at < new Date()) {
@@ -125,16 +127,23 @@ matchRouter.post('/:id/join', async (req, res) => {
   }
 
   const playerId = randomUUID();
-  const player: Player = { playerId, clientId, slot: 2, alias, connected: false };
-  const updatedState: MatchState = { ...state, players: [...state.players, player] };
+  let updatedState: MatchState;
 
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    const { rows: slotRows } = await client.query<{ next_slot: number }>(
+      `SELECT COALESCE(MAX(slot), 0) + 1 AS next_slot
+       FROM (SELECT slot FROM match_players WHERE match_id = $1 FOR UPDATE) AS locked`,
+      [matchId],
+    );
+    const slot = slotRows[0]!.next_slot as Slot;
+    const player: Player = { playerId, clientId, slot, alias, connected: false };
+    updatedState = { ...state, players: [...state.players, player] };
     await client.query(
       `INSERT INTO match_players (player_id, match_id, client_id, slot, alias, connected, last_seen_at)
        VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-      [playerId, matchId, clientId, 2, alias, false],
+      [playerId, matchId, clientId, slot, alias, false],
     );
     await client.query('UPDATE matches SET state_json = $1 WHERE match_id = $2', [
       JSON.stringify(updatedState),

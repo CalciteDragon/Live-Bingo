@@ -56,8 +56,8 @@ export function validateEvent(state: MatchState, event: ClientMessage): void {
         throw new EngineError('INVALID_STATE', 'START_MATCH requires Lobby status');
       if (!isHost)
         throw new EngineError('NOT_AUTHORIZED', 'Only the host can start the match');
-      if (state.players.length !== 2)
-        throw new EngineError('INVALID_STATE', 'Two players required to start');
+      if (state.players.length < 2 || state.players.length > 4)
+        throw new EngineError('INVALID_STATE', 'Two to four players required to start');
       if (!state.players.every((p) => state.readyStates[p.playerId]))
         throw new EngineError('INVALID_STATE', 'All players must be ready');
       return;
@@ -241,6 +241,48 @@ const LINES: readonly (readonly number[])[] = [
 ];
 
 /**
+ * Maps a cell's markedBy (playerId) to its "owner group" for win evaluation.
+ * FFA: the group is the player. Team mode: return player.teamId instead.
+ * This is the single extension point for team-based ownership.
+ */
+function resolveOwnerGroup(markedBy: string, _state: MatchState): string {
+  return markedBy;
+}
+
+/**
+ * Aggregates cell counts by owner group across all players.
+ * FFA: one entry per player (including 0-count players).
+ * Team mode: one entry per team (sum of all teammates' cells).
+ */
+function collectScoresByOwner(state: MatchState): Map<string, number> {
+  const counts = new Map<string, number>(
+    state.players.map((p) => [resolveOwnerGroup(p.playerId, state), 0]),
+  );
+  for (const cell of state.card.cells) {
+    if (cell.markedBy !== null) {
+      const group = resolveOwnerGroup(cell.markedBy, state);
+      counts.set(group, (counts.get(group) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
+/**
+ * Determines the winner when the countdown timer expires.
+ * Uses collectScoresByOwner so team mode gets consistent behavior
+ * by only changing resolveOwnerGroup — no changes needed here.
+ * Returns a MatchResult with reason 'timer_expiry'.
+ */
+export function resolveTimerWinner(state: MatchState): MatchResult {
+  const ownerScores = collectScoresByOwner(state);
+  const sorted = [...ownerScores.entries()].sort((a, b) => b[1] - a[1]);
+  const topCount = sorted[0]?.[1] ?? 0;
+  const topOwners = sorted.filter(([, count]) => count === topCount);
+  const winnerId = topOwners.length === 1 ? topOwners[0]![0] : null;
+  return { winnerId, reason: 'timer_expiry' };
+}
+
+/**
  * Checks for line or majority win conditions.
  * Returns MatchResult if a win is detected; null otherwise.
  * Line takes priority over majority if both trigger simultaneously.
@@ -251,23 +293,29 @@ export function checkWin(state: MatchState): MatchResult | null {
 
   const { cells } = state.card;
 
+  // ── Line win ──────────────────────────────────────────────────────────────
   for (const line of LINES) {
-    const first = cells[line[0]!]?.markedBy;
-    if (first !== null && first !== undefined && line.every((i) => cells[i]?.markedBy === first)) {
-      return { winnerId: first, reason: 'line' };
+    const firstMarkedBy = cells[line[0]!]?.markedBy;
+    if (!firstMarkedBy) continue;
+    const firstGroup = resolveOwnerGroup(firstMarkedBy, state);
+    if (
+      line.every((i) => {
+        const m = cells[i]?.markedBy;
+        return m != null && resolveOwnerGroup(m, state) === firstGroup;
+      })
+    ) {
+      return { winnerId: firstMarkedBy, reason: 'line' };
     }
   }
 
-  const counts = new Map<string, number>();
-  for (const cell of cells) {
-    if (cell.markedBy !== null) {
-      counts.set(cell.markedBy, (counts.get(cell.markedBy) ?? 0) + 1);
-    }
-  }
-  for (const [playerId, count] of counts) {
-    if (count >= 13) {
-      return { winnerId: playerId, reason: 'majority' };
-    }
+  // ── Majority win ──────────────────────────────────────────────────────────
+  const ownerScores = collectScoresByOwner(state);
+  const scores = [...ownerScores.values()].sort((a, b) => b - a);
+  const blanks = cells.filter((c) => c.markedBy === null).length;
+
+  if (scores.length >= 2 && blanks < scores[0]! - scores[1]!) {
+    const [winnerId] = [...ownerScores.entries()].find(([, count]) => count === scores[0]!)!;
+    return { winnerId: winnerId!, reason: 'majority' };
   }
 
   return null;

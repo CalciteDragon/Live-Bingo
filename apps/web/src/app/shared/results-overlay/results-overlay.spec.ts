@@ -9,6 +9,7 @@ import type { MatchState } from '@bingo/shared';
 function makeState(overrides: Partial<MatchState> = {}): MatchState {
   return {
     matchId: 'match-1',
+    matchMode: 'ffa',
     status: 'Completed',
     players: [
       { playerId: 'p1', clientId: 'c1', slot: 1, alias: 'Host',  connected: true },
@@ -27,6 +28,37 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
     },
     timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: null },
     result: { winnerId: 'p1', reason: 'line' },
+    ...overrides,
+  };
+}
+
+function make3PlayerState(overrides: Partial<MatchState> = {}): MatchState {
+  return {
+    matchId: 'match-1',
+    matchMode: 'ffa',
+    status: 'Completed',
+    players: [
+      { playerId: 'p1', clientId: 'c1', slot: 1, alias: 'Host',  connected: true },
+      { playerId: 'p2', clientId: 'c2', slot: 2, alias: 'Guest', connected: true },
+      { playerId: 'p3', clientId: 'c3', slot: 3, alias: 'Third', connected: true },
+    ],
+    readyStates: { p1: true, p2: true, p3: true },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    card: {
+      seed: 42,
+      cells: [
+        { index: 0, goal: 'A', markedBy: 'p1' },
+        { index: 1, goal: 'B', markedBy: 'p1' },
+        { index: 2, goal: 'C', markedBy: 'p1' },
+        { index: 3, goal: 'D', markedBy: 'p2' },
+        { index: 4, goal: 'E', markedBy: 'p2' },
+        { index: 5, goal: 'F', markedBy: 'p3' },
+        ...Array.from({ length: 19 }, (_, i) => ({ index: i + 6, goal: `G${i + 6}`, markedBy: null })),
+      ],
+    },
+    // p1=3, p2=2, p3=1 → ranks 1, 2, 3
+    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: null },
+    result: { winnerId: 'p1', reason: 'majority' },
     ...overrides,
   };
 }
@@ -75,14 +107,24 @@ describe('ResultsOverlayComponent — headline', () => {
     expect(fixture.nativeElement.textContent).toContain('You won!');
   });
 
-  it('shows "You lost." when current player is not winner', () => {
+  it('shows "You came 2nd!" when current player is runner-up in a 2-player match', () => {
     const { fixture } = setup(makeState({ result: { winnerId: 'p1', reason: 'line' } }), 'p2');
-    expect(fixture.nativeElement.textContent).toContain('You lost.');
+    expect(fixture.nativeElement.textContent).toContain('You came 2nd!');
   });
 
   it('shows "It\'s a draw!" on draw', () => {
     const { fixture } = setup(makeState({ result: { winnerId: null, reason: 'draw' } }), 'p1');
     expect(fixture.nativeElement.textContent).toContain("It's a draw!");
+  });
+
+  it('shows "You came 2nd!" for 2nd-place player in a 3-player match', () => {
+    const { fixture } = setup(make3PlayerState(), 'p2');
+    expect(fixture.nativeElement.textContent).toContain('You came 2nd!');
+  });
+
+  it('shows "You came 3rd!" for 3rd-place player in a 3-player match', () => {
+    const { fixture } = setup(make3PlayerState(), 'p3');
+    expect(fixture.nativeElement.textContent).toContain('You came 3rd!');
   });
 });
 
@@ -111,6 +153,15 @@ describe('ResultsOverlayComponent — score summary', () => {
     expect(text).toContain('Guest');
     expect(text).toContain('2 cells'); // p1 has 2
     expect(text).toContain('1 cell');  // p2 has 1 (singular)
+  });
+
+  it('renders all players sorted by count descending', () => {
+    const { fixture } = setup(make3PlayerState(), 'p1');
+    const rows: NodeListOf<Element> = fixture.nativeElement.querySelectorAll('.results-overlay__score-row');
+    expect(rows.length).toBe(3);
+    // p1 has 3 cells (highest) — should be first
+    expect(rows[0]!.textContent).toContain('Host');
+    expect(rows[0]!.textContent).toContain('3 cells');
   });
 });
 

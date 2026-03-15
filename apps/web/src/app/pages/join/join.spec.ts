@@ -10,6 +10,7 @@ import type { MatchState } from '@bingo/shared';
 function makeState(overrides: Partial<MatchState> = {}): MatchState {
   return {
     matchId: 'match-1',
+    matchMode: 'ffa',
     status: 'Lobby',
     players: [{ playerId: 'p1', clientId: 'c1', slot: 1, alias: 'Host', connected: false }],
     readyStates: {},
