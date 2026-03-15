@@ -44,9 +44,13 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
   };
 }
 
-function makeTransactionClient() {
+function makeTransactionClient(nextSlot = 2) {
+  const queryMock = vi.fn()
+    .mockResolvedValueOnce({ rows: [] })                          // BEGIN
+    .mockResolvedValueOnce({ rows: [{ next_slot: nextSlot }] })  // SELECT MAX(slot) FOR UPDATE
+    .mockResolvedValue({ rows: [] });                            // INSERT, UPDATE, COMMIT
   return {
-    query: vi.fn().mockResolvedValue({ rows: [] }),
+    query: queryMock,
     release: vi.fn(),
   };
 }
@@ -177,11 +181,13 @@ describe('POST /matches/:id/join', () => {
     expect(res.body.code).toBe('MATCH_NOT_JOINABLE');
   });
 
-  it('returns 409 when match already has two players', async () => {
+  it('returns 409 MATCH_FULL when match has 4 players', async () => {
     const state = makeState({
       players: [
         { playerId: HOST_PLAYER_ID, clientId: HOST_CLIENT_ID, slot: 1, alias: 'Host', connected: false },
-        { playerId: '00000000-0000-0000-0000-000000000011', clientId: GUEST_CLIENT_ID, slot: 2, alias: 'Guest', connected: false },
+        { playerId: '00000000-0000-0000-0000-000000000011', clientId: '00000000-0000-0000-0000-000000000021', slot: 2, alias: 'P2', connected: false },
+        { playerId: '00000000-0000-0000-0000-000000000012', clientId: '00000000-0000-0000-0000-000000000022', slot: 3, alias: 'P3', connected: false },
+        { playerId: '00000000-0000-0000-0000-000000000013', clientId: '00000000-0000-0000-0000-000000000023', slot: 4, alias: 'P4', connected: false },
       ],
     });
     (db as any).query.mockResolvedValueOnce({
@@ -191,11 +197,58 @@ describe('POST /matches/:id/join', () => {
 
     const res = await request(app)
       .post(`/matches/${MATCH_ID}/join`)
-      .set('X-Client-Id', '00000000-0000-0000-0000-000000000003')
-      .send({ alias: 'ThirdPlayer' });
+      .set('X-Client-Id', '00000000-0000-0000-0000-000000000099')
+      .send({ alias: 'FifthPlayer' });
 
     expect(res.status).toBe(409);
     expect(res.body.code).toBe('MATCH_FULL');
+    expect(res.body.message).toBe('Match is full');
+  });
+
+  it('returns 200 when match has 3 players (not yet full)', async () => {
+    const state = makeState({
+      players: [
+        { playerId: HOST_PLAYER_ID, clientId: HOST_CLIENT_ID, slot: 1, alias: 'Host', connected: false },
+        { playerId: '00000000-0000-0000-0000-000000000011', clientId: '00000000-0000-0000-0000-000000000021', slot: 2, alias: 'P2', connected: false },
+        { playerId: '00000000-0000-0000-0000-000000000012', clientId: '00000000-0000-0000-0000-000000000022', slot: 3, alias: 'P3', connected: false },
+      ],
+    });
+    (db as any).query.mockResolvedValueOnce({
+      rows: [{ state_json: state, join_code: validJoinCode, join_code_expires_at: futureExpiry }],
+    });
+    (db as any).connect.mockResolvedValue(makeTransactionClient(4));
+    (getMatch as any).mockReturnValue(undefined);
+
+    const res = await request(app)
+      .post(`/matches/${MATCH_ID}/join`)
+      .set('X-Client-Id', GUEST_CLIENT_ID)
+      .send({ alias: 'P4' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.state.players).toHaveLength(4);
+    expect(res.body.state.players[3].slot).toBe(4);
+  });
+
+  it('assigns correct slot based on current player count', async () => {
+    const state = makeState({
+      players: [
+        { playerId: HOST_PLAYER_ID, clientId: HOST_CLIENT_ID, slot: 1, alias: 'Host', connected: false },
+        { playerId: '00000000-0000-0000-0000-000000000011', clientId: '00000000-0000-0000-0000-000000000021', slot: 2, alias: 'P2', connected: false },
+      ],
+    });
+    (db as any).query.mockResolvedValueOnce({
+      rows: [{ state_json: state, join_code: validJoinCode, join_code_expires_at: futureExpiry }],
+    });
+    (db as any).connect.mockResolvedValue(makeTransactionClient(3));
+    (getMatch as any).mockReturnValue(undefined);
+
+    const res = await request(app)
+      .post(`/matches/${MATCH_ID}/join`)
+      .set('X-Client-Id', GUEST_CLIENT_ID)
+      .send({ alias: 'P3' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.state.players[2].slot).toBe(3);
   });
 
   it('returns 409 when clientId is already a participant', async () => {
