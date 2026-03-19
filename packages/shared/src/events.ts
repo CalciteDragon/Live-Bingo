@@ -26,6 +26,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('RESHUFFLE_BOARD'),    ...baseClientFields, payload: z.object({}) }),
   z.object({ type: z.literal('BACK_TO_LOBBY'),      ...baseClientFields, payload: z.object({}) }),
   z.object({ type: z.literal('REMATCH'),            ...baseClientFields, payload: z.object({}) }),
+  z.object({ type: z.literal('KICK_PLAYER'),        ...baseClientFields, payload: z.object({ playerId: z.string().uuid() }) }),
 ]);
 
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
@@ -34,9 +35,10 @@ export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 export type ClientIntentType = ClientMessage['type'];
 
 /** Payload types extracted from the discriminated union. */
-export type SetReadyPayload   = Extract<ClientMessage, { type: 'SET_READY'   }>['payload'];
-export type MarkCellPayload   = Extract<ClientMessage, { type: 'MARK_CELL'   }>['payload'];
-export type UnmarkCellPayload = Extract<ClientMessage, { type: 'UNMARK_CELL' }>['payload'];
+export type SetReadyPayload    = Extract<ClientMessage, { type: 'SET_READY'    }>['payload'];
+export type MarkCellPayload    = Extract<ClientMessage, { type: 'MARK_CELL'    }>['payload'];
+export type UnmarkCellPayload  = Extract<ClientMessage, { type: 'UNMARK_CELL'  }>['payload'];
+export type KickPlayerPayload  = Extract<ClientMessage, { type: 'KICK_PLAYER'  }>['payload'];
 
 // ---------------------------------------------------------------------------
 // Server → Client: plain TypeScript

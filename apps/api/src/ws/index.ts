@@ -17,6 +17,8 @@ import {
   scheduleAbandonTimer,
   cancelAbandonTimer,
   scheduleCountdownTimer,
+  cancelLobbyKickTimer,
+  scheduleLobbyKickTimer,
 } from './match-timers.js';
 
 export { scheduleCountdownTimer, scheduleAbandonTimer };
@@ -62,6 +64,10 @@ async function onClientConnected(ws: WebSocket, matchId: string, clientId: strin
   cancelAbandonTimer(matchId);
 
   const entry = getMatch(matchId)!;
+  const reconnectingPlayer = entry.state.players.find((p) => p.clientId === clientId);
+  if (reconnectingPlayer) {
+    cancelLobbyKickTimer(matchId, reconnectingPlayer.playerId);
+  }
   const updatedState = {
     ...entry.state,
     players: entry.state.players.map((p) =>
@@ -128,6 +134,11 @@ async function handleDisconnect(ws: WebSocket, matchId: string, clientId: string
     matchId,
     payload: { players: updatedState.players, readyStates: updatedState.readyStates },
   });
+
+  // Schedule auto-kick for non-host players who disconnect in Lobby
+  if (updatedState.status === 'Lobby' && disconnectedPlayer && disconnectedPlayer.slot !== 1) {
+    scheduleLobbyKickTimer(matchId, disconnectedPlayer.playerId);
+  }
 
   const allDisconnected = updatedState.players.every((p) => !p.connected);
   if (allDisconnected) {

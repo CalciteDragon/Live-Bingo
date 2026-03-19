@@ -76,10 +76,11 @@ Zod-validated `ClientMessageSchema` (discriminated union on `type`):
 | `RESHUFFLE_BOARD` | `{}` | host |
 | `BACK_TO_LOBBY` | `{}` | host |
 | `REMATCH` | `{}` | host |
+| `KICK_PLAYER` | `{ playerId: string (uuid) }` | host |
 
 All messages include: `matchId` (uuid), `clientId` (uuid), `eventId` (uuid)
 
-Derived types: `ClientMessage`, `ClientIntentType`, `SetReadyPayload`, `MarkCellPayload`, `UnmarkCellPayload`
+Derived types: `ClientMessage`, `ClientIntentType`, `SetReadyPayload`, `MarkCellPayload`, `UnmarkCellPayload`, `KickPlayerPayload`
 
 ## Server → Client Messages (src/events.ts)
 
@@ -105,7 +106,7 @@ type RestErrorCode =
 
 type WsErrorCode =
   | 'INVALID_EVENT' | 'NOT_AUTHORIZED' | 'INVALID_STATE'
-  | 'DUPLICATE_EVENT' | 'SESSION_REPLACED'
+  | 'DUPLICATE_EVENT' | 'SESSION_REPLACED' | 'KICKED'
 
 interface RestErrorResponse { code: RestErrorCode; message: string }
 interface WsErrorPayload { code: WsErrorCode; message: string; rejectedEventId?: string }

@@ -33,13 +33,14 @@ Validates that a `ClientMessage` is legal in the current `MatchState`. Throws `E
 
 Key rules:
 - Looks up caller by `event.clientId` in `state.players`
-- Host-only actions: START_MATCH, SET_LOBBY_SETTINGS, RESHUFFLE_BOARD, BACK_TO_LOBBY, REMATCH
+- Host-only actions: START_MATCH, SET_LOBBY_SETTINGS, RESHUFFLE_BOARD, BACK_TO_LOBBY, REMATCH, KICK_PLAYER
 - START_MATCH: requires Lobby status, 2-4 players, all ready
 - MARK_CELL: requires InProgress, cell must not already be marked
 - UNMARK_CELL: requires InProgress, cell must be owned by caller
 - RESHUFFLE_BOARD: requires InProgress, no cells marked
 - REMATCH: requires Completed, all players connected
 - BACK_TO_LOBBY: requires InProgress or Completed
+- KICK_PLAYER: requires Lobby status, target must exist and must not be the host (slot 1)
 
 ## applyEvent(state, event, ctx?) → MatchState
 
@@ -55,6 +56,7 @@ Key behaviors:
 - RESHUFFLE_BOARD: applies `ctx.newCard`, resets `timer.startedAt`
 - BACK_TO_LOBBY: status→Lobby, clears marks, resets timer, clears readyStates+result
 - REMATCH: status→InProgress, applies `ctx.newCard`, resets timer, clears result
+- KICK_PLAYER: removes target from `players` array and `readyStates`
 
 ## checkWin(state) → MatchResult | null
 

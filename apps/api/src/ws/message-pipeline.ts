@@ -3,8 +3,8 @@ import { ClientMessageSchema } from '@bingo/shared';
 import type { ClientMessage, ServerMessage, MatchState, Player, MatchResult } from '@bingo/shared';
 import { validateEvent, applyEvent, checkWin, EngineError, generateBoard } from '@bingo/engine';
 import { db } from '../db/index.js';
-import { getMatch, setMatch, broadcastToMatch } from '../match-registry.js';
-import { cancelCountdownTimer, scheduleCountdownTimer } from './match-timers.js';
+import { getMatch, setMatch, broadcastToMatch, removeSocket } from '../match-registry.js';
+import { cancelCountdownTimer, scheduleCountdownTimer, cancelLobbyKickTimer } from './match-timers.js';
 
 // ─── Shared send helper ───────────────────────────────────────────────────────
 
@@ -124,6 +124,9 @@ async function persistEventTransaction(
        VALUES ($1, (SELECT COALESCE(MAX(seq), 0) + 1 FROM match_events WHERE match_id = $1), $2, $3, $4, $5, $6, NOW())`,
       [matchId, message.eventId, message.type, JSON.stringify(message.payload), caller.playerId, clientId],
     );
+    if (message.type === 'KICK_PLAYER') {
+      await dbConn.query('DELETE FROM match_players WHERE player_id = $1', [message.payload.playerId]);
+    }
     await dbConn.query(
       `UPDATE matches
        SET state_json = $1,
@@ -253,6 +256,11 @@ export async function processMessage(
     return;
   }
 
+  // Pre-stage 7 — Capture kicked player's clientId before they are removed from state
+  const kickedClientId = message.type === 'KICK_PLAYER'
+    ? entry.state.players.find((p) => p.playerId === message.payload.playerId)?.clientId
+    : undefined;
+
   // Stage 7 — Build engine context, apply event, and check for win
   const ctx = buildEngineContext(message);
   const { newState, winResult } = applyAndCheckWin(entry.state, message, ctx);
@@ -270,6 +278,21 @@ export async function processMessage(
     matchId,
     payload: { state: newState, lastAppliedEventId: message.eventId },
   });
+
+  // Stage 10.5 — KICK_PLAYER: cancel auto-kick timer and close kicked player's socket
+  if (message.type === 'KICK_PLAYER' && kickedClientId) {
+    cancelLobbyKickTimer(matchId, message.payload.playerId);
+    const kickedSocket = entry.sockets.get(kickedClientId);
+    if (kickedSocket) {
+      removeSocket(matchId, kickedClientId);
+      sendTo(kickedSocket, {
+        type: 'ERROR',
+        matchId,
+        payload: { code: 'KICKED', message: 'You have been removed from the match by the host' },
+      });
+      kickedSocket.close();
+    }
+  }
 
   // Stage 11 — Broadcast lifecycle events (MATCH_STARTED, MATCH_COMPLETED)
   broadcastLifecycleEvents(matchId, message, winResult);

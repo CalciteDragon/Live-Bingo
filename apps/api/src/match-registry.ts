@@ -3,9 +3,10 @@ import type { MatchState, ServerMessage } from '@bingo/shared';
 
 export interface MatchEntry {
   state: MatchState;
-  sockets: Map<string, WebSocket>; // clientId → WebSocket
-  abandonTimer?: NodeJS.Timeout;   // set when both players disconnect
-  countdownTimer?: NodeJS.Timeout; // set when match starts in countdown mode
+  sockets: Map<string, WebSocket>;                  // clientId → WebSocket
+  abandonTimer?: NodeJS.Timeout;                    // set when all players disconnect
+  countdownTimer?: NodeJS.Timeout;                  // set when match starts in countdown mode
+  lobbyKickTimers?: Map<string, NodeJS.Timeout>;    // playerId → 30s auto-kick timer (Lobby only)
 }
 
 const registry = new Map<string, MatchEntry>();

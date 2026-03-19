@@ -60,7 +60,7 @@ Lobby → InProgress → Completed → InProgress (rematch)
 Any state → Abandoned (all players disconnect; 10-min timeout)
 ```
 
-- **Host** (slot 1, always creator) controls: START_MATCH, RESHUFFLE_BOARD, BACK_TO_LOBBY, REMATCH, SET_LOBBY_SETTINGS
+- **Host** (slot 1, always creator) controls: START_MATCH, RESHUFFLE_BOARD, BACK_TO_LOBBY, REMATCH, SET_LOBBY_SETTINGS, KICK_PLAYER
 - **Any player**: SET_READY, MARK_CELL, UNMARK_CELL, SYNC_STATE
 
 ## Match Mode

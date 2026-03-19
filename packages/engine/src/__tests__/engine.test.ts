@@ -76,6 +76,9 @@ const backToLobby = (clientId = HOST_CLIENT): ClientMessage =>
 const rematch = (clientId = HOST_CLIENT): ClientMessage =>
   ({ ...BASE, type: 'REMATCH', clientId, payload: {} });
 
+const kickPlayer = (playerId: string, clientId = HOST_CLIENT): ClientMessage =>
+  ({ ...BASE, type: 'KICK_PLAYER', clientId, payload: { playerId } });
+
 const setLobbySettings = (
   timerMode: 'stopwatch' | 'countdown',
   countdownDurationMs?: number,
@@ -313,6 +316,36 @@ describe('validateEvent', () => {
     });
   });
 
+  describe('KICK_PLAYER', () => {
+    it('passes for host kicking a guest in Lobby', () => {
+      expect(() => validateEvent(makeState(), kickPlayer(GUEST_ID))).not.toThrow();
+    });
+    it('throws INVALID_STATE when not in Lobby', () => {
+      expectEngineError(
+        () => validateEvent(makeState({ status: 'InProgress' }), kickPlayer(GUEST_ID)),
+        'INVALID_STATE',
+      );
+    });
+    it('throws NOT_AUTHORIZED for guest', () => {
+      expectEngineError(
+        () => validateEvent(makeState(), kickPlayer(HOST_ID, GUEST_CLIENT)),
+        'NOT_AUTHORIZED',
+      );
+    });
+    it('throws INVALID_EVENT when target player not found', () => {
+      expectEngineError(
+        () => validateEvent(makeState(), kickPlayer('00000000-0000-0000-0000-000000000099')),
+        'INVALID_EVENT',
+      );
+    });
+    it('throws INVALID_EVENT when trying to kick the host (slot 1)', () => {
+      expectEngineError(
+        () => validateEvent(makeState(), kickPlayer(HOST_ID)),
+        'INVALID_EVENT',
+      );
+    });
+  });
+
   describe('unknown clientId', () => {
     it('throws INVALID_EVENT', () => {
       expectEngineError(
@@ -488,6 +521,35 @@ describe('applyEvent', () => {
     const next = applyEvent(state, rematch(), { nowIso: '2024-01-01T00:00:00Z' });
     expect(next.card.seed).toBe(55);
     expect(next.card.cells.every((c) => c.markedBy === null)).toBe(true);
+  });
+
+  it('KICK_PLAYER — removes target from players array', () => {
+    const state = makeState({ readyStates: { [GUEST_ID]: true } });
+    const next = applyEvent(state, kickPlayer(GUEST_ID));
+    expect(next.players).toHaveLength(1);
+    expect(next.players[0]?.playerId).toBe(HOST_ID);
+  });
+
+  it('KICK_PLAYER — removes target from readyStates', () => {
+    const state = makeState({ readyStates: { [HOST_ID]: true, [GUEST_ID]: true } });
+    const next = applyEvent(state, kickPlayer(GUEST_ID));
+    expect(next.readyStates[GUEST_ID]).toBeUndefined();
+    expect(next.readyStates[HOST_ID]).toBe(true);
+  });
+
+  it('KICK_PLAYER — host and other state unaffected', () => {
+    const state = makeState();
+    const next = applyEvent(state, kickPlayer(GUEST_ID));
+    expect(next.status).toBe('Lobby');
+    expect(next.card).toEqual(state.card);
+    expect(next.players.find((p) => p.playerId === HOST_ID)).toBeDefined();
+  });
+
+  it('KICK_PLAYER — does not mutate input state', () => {
+    const state = makeState();
+    applyEvent(state, kickPlayer(GUEST_ID));
+    expect(state.players).toHaveLength(2);
+    expect(Object.keys(state.readyStates)).toHaveLength(0);
   });
 
   it('input state is never mutated', () => {

@@ -9,7 +9,6 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Write integration tests for API endpoints and WebSocket handlers against a real Postgres instance (unit tests with mocked DB already exist) (make sure this is in a seperate command from npm run ci)
 - [ ] Harden idempotency and ACID behavior across in-memory registry and Postgres persistence paths
 - [ ] Add server-side WebSocket heartbeat (ping/pong every ~30s, terminate on no pong) so crashed/killed clients are detected within a bounded time window rather than relying on TCP keepalive (post-MVP)
-- [ ] Host kick-player: add a KICK_PLAYER intent (lobby only); auto-kick a player after 30 s of disconnect in lobby
 
 ## `packages/shared`
 
@@ -35,3 +34,5 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - rejoin ongoing match flow from join request (currently blocks on "This match has already started" even if you are a participant)
 - rejoin recent match home button
 - add esLint to npm run ci
+- custom goals + only use custom goals option
+- npm run ci total duration ms display

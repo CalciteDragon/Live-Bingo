@@ -53,9 +53,10 @@ In-memory `Map<string, MatchEntry>`:
 ```typescript
 interface MatchEntry {
   state: MatchState
-  sockets: Map<string, WebSocket>  // clientId → WebSocket
+  sockets: Map<string, WebSocket>                // clientId → WebSocket
   abandonTimer?: NodeJS.Timeout
   countdownTimer?: NodeJS.Timeout
+  lobbyKickTimers?: Map<string, NodeJS.Timeout>  // playerId → 30s auto-kick timer (Lobby only)
 }
 ```
 
@@ -101,17 +102,19 @@ All routes use `clientIdMiddleware` (validates `X-Client-Id` header via Zod).
 ### onClientConnected
 1. Registers socket in registry (replaces stale socket for same clientId)
 2. Cancels abandon timer
-3. Sets player `connected: true` in state, persists to DB
-4. Broadcasts PRESENCE_UPDATE to all
-5. Sends STATE_SYNC to the connecting client
-6. Attaches `message` and `close` event handlers
+3. Cancels any pending lobby auto-kick timer for the reconnecting player
+4. Sets player `connected: true` in state, persists to DB
+5. Broadcasts PRESENCE_UPDATE to all
+6. Sends STATE_SYNC to the connecting client
+7. Attaches `message` and `close` event handlers
 
 ### handleDisconnect
 1. Only proceeds if `removeSocketIfCurrent` returns true (prevents stale socket handling)
 2. Sets player `connected: false`
 3. If lobby: also sets player's ready state to false
 4. Persists to DB, broadcasts PRESENCE_UPDATE
-5. If ALL players disconnected: starts abandon timer
+5. If Lobby and non-host player: starts 30s auto-kick timer (`scheduleLobbyKickTimer`)
+6. If ALL players disconnected: starts abandon timer
 
 ## Message Pipeline (src/ws/message-pipeline.ts)
 
@@ -143,6 +146,11 @@ All routes use `clientIdMiddleware` (validates `X-Client-Id` header via Zod).
 - `scheduleAbandonTimer(matchId)` — 10-minute timeout when all players disconnect
 - `cancelAbandonTimer(matchId)` — cancelled when any player reconnects
 - `abandonMatch(matchId)` — deletes from DB + registry, cancels countdown timer
+
+### Lobby Kick Timer
+- `scheduleLobbyKickTimer(matchId, playerId)` — 30-second timeout when a non-host player disconnects in Lobby; resets if called again before firing
+- `cancelLobbyKickTimer(matchId, playerId)` — cancelled when the player reconnects or is manually kicked
+- `autoKickPlayer(matchId, playerId)` — fires after 30s: removes player from state + `match_players` DB row, broadcasts STATE_UPDATE + PRESENCE_UPDATE; no-ops if match left Lobby or player reconnected
 
 ## Tests
 

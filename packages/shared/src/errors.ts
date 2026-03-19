@@ -14,7 +14,8 @@ export type WsErrorCode =
   | 'NOT_AUTHORIZED'   // Caller lacks permission (e.g. guest sending host-only event)
   | 'INVALID_STATE'    // Event not valid in the current match state
   | 'DUPLICATE_EVENT'  // eventId has already been processed for this match
-  | 'SESSION_REPLACED'; // Another connection opened for the same clientId; this socket is stale
+  | 'SESSION_REPLACED' // Another connection opened for the same clientId; this socket is stale
+  | 'KICKED';          // Player was removed from the lobby by the host or auto-kick
 
 export interface RestErrorResponse {
   code: RestErrorCode;

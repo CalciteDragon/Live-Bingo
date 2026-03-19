@@ -814,6 +814,266 @@ describe('handleDisconnect', () => {
 });
 
 // =============================================================================
+// processMessage — KICK_PLAYER
+// =============================================================================
+
+describe('processMessage — KICK_PLAYER', () => {
+  const KICK_EVENT_ID = '00000000-0000-0000-0000-000000000080';
+
+  it('removes kicked player from state, persists with match_players DELETE, broadcasts STATE_UPDATE', async () => {
+    setMatch(MATCH_ID, { state: makeTwoPlayerLobbyState(), sockets: new Map() });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+    hostWs.send.mockClear();
+
+    const txClient = makeTransactionClient();
+    (db as any).connect.mockResolvedValue(txClient);
+
+    hostWs.receive({
+      type: 'KICK_PLAYER',
+      matchId: MATCH_ID,
+      clientId: HOST_CLIENT_ID,
+      eventId: KICK_EVENT_ID,
+      payload: { playerId: GUEST_PLAYER_ID },
+    });
+    await flush();
+
+    // Kicked player removed from registry state
+    const state = getMatch(MATCH_ID)!.state;
+    expect(state.players).toHaveLength(1);
+    expect(state.players[0]?.playerId).toBe(HOST_PLAYER_ID);
+
+    // Transaction included DELETE FROM match_players
+    const deleteCalls = txClient.query.mock.calls.filter(
+      (args: unknown[]) => (args[0] as string).includes('DELETE FROM match_players'),
+    );
+    expect(deleteCalls).toHaveLength(1);
+    expect(deleteCalls[0][1]).toContain(GUEST_PLAYER_ID);
+
+    // STATE_UPDATE broadcast
+    const update = hostWs.sent().find((m: any) => m.type === 'STATE_UPDATE') as any;
+    expect(update).toBeDefined();
+    expect(update.payload.state.players).toHaveLength(1);
+  });
+
+  it('sends KICKED error to kicked player and closes their socket', async () => {
+    setMatch(MATCH_ID, { state: makeTwoPlayerLobbyState(), sockets: new Map() });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    const guestWs = await connectClient(GUEST_CLIENT_ID);
+    hostWs.send.mockClear();
+    guestWs.send.mockClear();
+
+    const txClient = makeTransactionClient();
+    (db as any).connect.mockResolvedValue(txClient);
+
+    hostWs.receive({
+      type: 'KICK_PLAYER',
+      matchId: MATCH_ID,
+      clientId: HOST_CLIENT_ID,
+      eventId: KICK_EVENT_ID,
+      payload: { playerId: GUEST_PLAYER_ID },
+    });
+    await flush();
+
+    const kickedMsg = guestWs.sent().find((m: any) => m.type === 'ERROR') as any;
+    expect(kickedMsg).toBeDefined();
+    expect(kickedMsg.payload.code).toBe('KICKED');
+    expect(guestWs.close).toHaveBeenCalled();
+  });
+
+  it('cancels pending auto-kick timer for the kicked player', async () => {
+    vi.useFakeTimers();
+    setMatch(MATCH_ID, { state: makeTwoPlayerLobbyState(), sockets: new Map() });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+
+    // Plant a fake auto-kick timer for the guest
+    const entry = getMatch(MATCH_ID)!;
+    entry.lobbyKickTimers = new Map();
+    const kickSpy = vi.fn();
+    entry.lobbyKickTimers.set(GUEST_PLAYER_ID, setTimeout(kickSpy, 30_000) as unknown as NodeJS.Timeout);
+
+    const txClient = makeTransactionClient();
+    (db as any).connect.mockResolvedValue(txClient);
+
+    const ws = getMatch(MATCH_ID)!.sockets.get(HOST_CLIENT_ID) as unknown as MockWebSocket;
+    ws.send.mockClear();
+    ws.receive({
+      type: 'KICK_PLAYER',
+      matchId: MATCH_ID,
+      clientId: HOST_CLIENT_ID,
+      eventId: KICK_EVENT_ID,
+      payload: { playerId: GUEST_PLAYER_ID },
+    });
+    await flush();
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(kickSpy).not.toHaveBeenCalled();
+  });
+
+  it('sends NOT_AUTHORIZED error when guest attempts KICK_PLAYER', async () => {
+    setMatch(MATCH_ID, { state: makeTwoPlayerLobbyState(), sockets: new Map() });
+    await connectClient(HOST_CLIENT_ID);
+    const guestWs = await connectClient(GUEST_CLIENT_ID);
+
+    const eventId = '00000000-0000-0000-0000-000000000081';
+    guestWs.receive({
+      type: 'KICK_PLAYER',
+      matchId: MATCH_ID,
+      clientId: GUEST_CLIENT_ID,
+      eventId,
+      payload: { playerId: HOST_PLAYER_ID },
+    });
+    await flush();
+
+    const err = guestWs.lastSent() as any;
+    expect(err.type).toBe('ERROR');
+    expect(err.payload.code).toBe('NOT_AUTHORIZED');
+  });
+
+  it('sends INVALID_STATE error when KICK_PLAYER is sent while InProgress', async () => {
+    setMatch(MATCH_ID, { state: makeInProgressState(), sockets: new Map() });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+
+    const eventId = '00000000-0000-0000-0000-000000000082';
+    hostWs.receive({
+      type: 'KICK_PLAYER',
+      matchId: MATCH_ID,
+      clientId: HOST_CLIENT_ID,
+      eventId,
+      payload: { playerId: GUEST_PLAYER_ID },
+    });
+    await flush();
+
+    const err = hostWs.lastSent() as any;
+    expect(err.type).toBe('ERROR');
+    expect(err.payload.code).toBe('INVALID_STATE');
+  });
+});
+
+// =============================================================================
+// auto-kick — 30s lobby disconnect timer
+// =============================================================================
+
+describe('auto-kick (lobby disconnect timer)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  it('schedules a 30s kick timer when a non-host player disconnects in Lobby', async () => {
+    setMatch(MATCH_ID, { state: makeTwoPlayerLobbyState(), sockets: new Map() });
+    await connectClient(HOST_CLIENT_ID);
+    const guestWs = await connectClient(GUEST_CLIENT_ID);
+
+    guestWs.emit('close');
+    await flush();
+
+    const entry = getMatch(MATCH_ID)!;
+    expect(entry.lobbyKickTimers?.get(GUEST_PLAYER_ID)).toBeDefined();
+  });
+
+  it('does NOT schedule a kick timer when the host disconnects in Lobby', async () => {
+    setMatch(MATCH_ID, { state: makeTwoPlayerLobbyState(), sockets: new Map() });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+
+    hostWs.emit('close');
+    await flush();
+
+    const entry = getMatch(MATCH_ID)!;
+    expect(entry.lobbyKickTimers?.get(HOST_PLAYER_ID)).toBeUndefined();
+  });
+
+  it('cancels the kick timer when a player reconnects', async () => {
+    setMatch(MATCH_ID, { state: makeTwoPlayerLobbyState(), sockets: new Map() });
+    await connectClient(HOST_CLIENT_ID);
+    const guestWs = await connectClient(GUEST_CLIENT_ID);
+
+    guestWs.emit('close');
+    await flush();
+    expect(getMatch(MATCH_ID)!.lobbyKickTimers?.get(GUEST_PLAYER_ID)).toBeDefined();
+
+    // Guest reconnects
+    vi.useRealTimers();
+    await connectClient(GUEST_CLIENT_ID);
+    expect(getMatch(MATCH_ID)!.lobbyKickTimers?.get(GUEST_PLAYER_ID)).toBeUndefined();
+  });
+
+  it('auto-kicks player after 30s: removes from state, deletes from match_players, broadcasts', async () => {
+    setMatch(MATCH_ID, { state: makeTwoPlayerLobbyState(), sockets: new Map() });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    const guestWs = await connectClient(GUEST_CLIENT_ID);
+
+    guestWs.emit('close');
+    await flush();
+    hostWs.send.mockClear();
+
+    (db as any).connect.mockResolvedValue(makeTransactionClient());
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await flush();
+
+    // Player removed from in-memory state
+    const state = getMatch(MATCH_ID)!.state;
+    expect(state.players).toHaveLength(1);
+    expect(state.players[0]?.playerId).toBe(HOST_PLAYER_ID);
+
+    // STATE_UPDATE broadcast
+    const update = hostWs.sent().find((m: any) => m.type === 'STATE_UPDATE') as any;
+    expect(update).toBeDefined();
+    expect(update.payload.state.players).toHaveLength(1);
+  });
+
+  it('auto-kick is a no-op if the player already reconnected', async () => {
+    setMatch(MATCH_ID, { state: makeTwoPlayerLobbyState(), sockets: new Map() });
+    await connectClient(HOST_CLIENT_ID);
+    const guestWs = await connectClient(GUEST_CLIENT_ID);
+
+    guestWs.emit('close');
+    await flush();
+
+    // Guest reconnects before the 30s timer fires
+    vi.useRealTimers();
+    await connectClient(GUEST_CLIENT_ID);
+    vi.useFakeTimers();
+
+    vi.clearAllMocks();
+    (db as any).query.mockResolvedValue({ rows: [] });
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await flush();
+
+    // Player still in state (not kicked)
+    const state = getMatch(MATCH_ID)!.state;
+    expect(state.players).toHaveLength(2);
+    // No DB call from auto-kick
+    expect(db.connect).not.toHaveBeenCalled();
+  });
+
+  it('auto-kick is a no-op if match already started (InProgress)', async () => {
+    setMatch(MATCH_ID, { state: makeTwoPlayerLobbyState(), sockets: new Map() });
+    await connectClient(HOST_CLIENT_ID);
+    const guestWs = await connectClient(GUEST_CLIENT_ID);
+
+    guestWs.emit('close');
+    await flush();
+
+    // Manually transition match to InProgress before timer fires
+    const entry = getMatch(MATCH_ID)!;
+    setMatch(MATCH_ID, { ...entry, state: makeInProgressState() });
+
+    vi.clearAllMocks();
+    (db as any).query.mockResolvedValue({ rows: [] });
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await flush();
+
+    expect(db.connect).not.toHaveBeenCalled();
+    expect(getMatch(MATCH_ID)!.state.players).toHaveLength(2);
+  });
+});
+
+// =============================================================================
 // abandonMatch — timer expiry
 // =============================================================================
 

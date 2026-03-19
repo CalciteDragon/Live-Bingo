@@ -107,6 +107,19 @@ export function validateEvent(state: MatchState, event: ClientMessage): void {
       if (!state.players.every((p) => p.connected))
         throw new EngineError('INVALID_STATE', 'Both players must be connected for a rematch');
       return;
+
+    case 'KICK_PLAYER': {
+      if (state.status !== 'Lobby')
+        throw new EngineError('INVALID_STATE', 'KICK_PLAYER requires Lobby status');
+      if (!isHost)
+        throw new EngineError('NOT_AUTHORIZED', 'Only the host can kick players');
+      const target = state.players.find((p) => p.playerId === event.payload.playerId);
+      if (!target)
+        throw new EngineError('INVALID_EVENT', 'Target player not found');
+      if (target.slot === 1)
+        throw new EngineError('INVALID_EVENT', 'Cannot kick the host');
+      return;
+    }
   }
 }
 
@@ -212,6 +225,17 @@ export function applyEvent(
         card: rematchCard,
         timer: { ...state.timer, startedAt: ctx.nowIso ?? null },
         result: null,
+      };
+    }
+
+    case 'KICK_PLAYER': {
+      const { playerId } = event.payload;
+      const newReadyStates = { ...state.readyStates };
+      delete newReadyStates[playerId];
+      return {
+        ...state,
+        players: state.players.filter((p) => p.playerId !== playerId),
+        readyStates: newReadyStates,
       };
     }
   }
