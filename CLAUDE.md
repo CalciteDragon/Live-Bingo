@@ -8,6 +8,21 @@ Real-time 1v1 Minecraft Bingo web app. Players share a link to join a lobby, the
 
 Full system design: `docs/design/minecraft_bingo_system_overview.md`
 
+## .claude/ — Living Documentation
+
+The `.claude/` directory at the project root contains structured markdown files documenting the entire project's architecture, types, implementation details, and conventions. **Start here when beginning a new session with no context.**
+
+- `.claude/README.md` — Index of all documentation files
+- `.claude/architecture.md` — High-level architecture, data flow, state machine
+- `.claude/shared-types.md` — All types and Zod schemas from `packages/shared`
+- `.claude/engine.md` — Engine functions, algorithms, board generation, win logic
+- `.claude/api-server.md` — REST routes, WebSocket handling, DB, timers, registry
+- `.claude/web-client.md` — Angular components, services, routing, guards, styling
+- `.claude/data-model.md` — Postgres schema, persistence strategy
+- `.claude/conventions.md` — Code patterns, naming, testing, CI
+
+**IMPORTANT: These documents must ALWAYS be kept in sync with the actual codebase.** After making any project change, check if any `.claude/` docs need updating and fix them before considering the task done. If you notice drift between the docs and reality, correct the docs immediately.
+
 ## Monorepo Structure
 
 npm workspaces monorepo:
