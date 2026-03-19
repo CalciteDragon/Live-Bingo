@@ -199,7 +199,7 @@ export class LobbyComponent {
         } else if (msg.type === 'PRESENCE_UPDATE') {
           const current = this.sessionStore.matchState();
           if (current) {
-            this.sessionStore.matchState.set({ ...current, players: msg.payload.players });
+            this.sessionStore.matchState.set({ ...current, players: msg.payload.players, readyStates: msg.payload.readyStates });
           }
         } else if (msg.type === 'ERROR') {
           this.errorMessage.set(msg.payload.message);

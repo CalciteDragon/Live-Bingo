@@ -78,7 +78,7 @@ async function onClientConnected(ws: WebSocket, matchId: string, clientId: strin
   broadcastToMatch(matchId, {
     type: 'PRESENCE_UPDATE',
     matchId,
-    payload: { players: updatedState.players },
+    payload: { players: updatedState.players, readyStates: updatedState.readyStates },
   });
 
   sendTo(ws, { type: 'STATE_SYNC', matchId, payload: { state: updatedState } });
@@ -126,7 +126,7 @@ async function handleDisconnect(ws: WebSocket, matchId: string, clientId: string
   broadcastToMatch(matchId, {
     type: 'PRESENCE_UPDATE',
     matchId,
-    payload: { players: updatedState.players },
+    payload: { players: updatedState.players, readyStates: updatedState.readyStates },
   });
 
   const allDisconnected = updatedState.players.every((p) => !p.connected);

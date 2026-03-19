@@ -205,6 +205,7 @@ describe('handleUpgrade', () => {
     const presence = hostWs.sent().find((m: any) => m.type === 'PRESENCE_UPDATE') as any;
     expect(presence).toBeDefined();
     expect(presence.payload.players).toHaveLength(2);
+    expect(presence.payload.readyStates).toBeDefined();
   });
 
   it('clears a pending abandon timer on reconnect', async () => {
@@ -699,6 +700,7 @@ describe('handleDisconnect', () => {
     const presence = guestSocket.sent().find((m: any) => m.type === 'PRESENCE_UPDATE') as any;
     expect(presence).toBeDefined();
     expect(presence.payload.players.find((p: any) => p.clientId === HOST_CLIENT_ID).connected).toBe(false);
+    expect(presence.payload.readyStates).toBeDefined();
   });
 
   it('resets the disconnecting player readyState when match is in Lobby', async () => {
@@ -717,6 +719,30 @@ describe('handleDisconnect', () => {
     expect(getMatch(MATCH_ID)!.state.readyStates[HOST_PLAYER_ID]).toBe(false);
     // Guest ready state should be unaffected
     expect(getMatch(MATCH_ID)!.state.readyStates[GUEST_PLAYER_ID]).toBe(true);
+  });
+
+  it('PRESENCE_UPDATE on disconnect includes the cleared readyStates in the payload', async () => {
+    setMatch(MATCH_ID, {
+      state: makeTwoPlayerLobbyState({
+        readyStates: { [HOST_PLAYER_ID]: true, [GUEST_PLAYER_ID]: true },
+      }),
+      sockets: new Map(),
+    });
+    const hostWs = await connectClient(HOST_CLIENT_ID);
+    await connectClient(GUEST_CLIENT_ID);
+
+    const guestSocket = getMatch(MATCH_ID)!.sockets.get(GUEST_CLIENT_ID) as unknown as MockWebSocket;
+    guestSocket.send.mockClear();
+
+    hostWs.emit('close');
+    await flush();
+
+    const presence = guestSocket.sent().find((m: any) => m.type === 'PRESENCE_UPDATE') as any;
+    expect(presence).toBeDefined();
+    // Host ready state must be cleared in the broadcast payload
+    expect(presence.payload.readyStates[HOST_PLAYER_ID]).toBe(false);
+    // Guest ready state must remain intact
+    expect(presence.payload.readyStates[GUEST_PLAYER_ID]).toBe(true);
   });
 
   it('does not reset readyStates when match is InProgress', async () => {

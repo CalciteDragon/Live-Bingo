@@ -136,19 +136,24 @@ describe('LobbyComponent — socket messages', () => {
     expect(comp.countdownDurationMs()).toBe(240_000);
   });
 
-  it('PRESENCE_UPDATE patches players into existing matchState', () => {
-    const initial = makeState();
+  it('PRESENCE_UPDATE patches players and readyStates into existing matchState', () => {
+    const initial = makeState({ readyStates: { p1: true, p2: true } });
     const { matchStateSignal, messagesSubject } = setup(initial);
 
     const updatedPlayers = [
       { playerId: 'p1', clientId: 'c1', slot: 1 as const, alias: 'Host',  connected: true },
       { playerId: 'p2', clientId: 'c2', slot: 2 as const, alias: 'Guest', connected: false },
     ];
-    messagesSubject.next({ type: 'PRESENCE_UPDATE', matchId: 'match-1', payload: { players: updatedPlayers } });
+    const updatedReadyStates = { p1: true, p2: false };
+    messagesSubject.next({
+      type: 'PRESENCE_UPDATE',
+      matchId: 'match-1',
+      payload: { players: updatedPlayers, readyStates: updatedReadyStates },
+    });
 
     expect(matchStateSignal()!.players).toEqual(updatedPlayers);
-    // rest of state is preserved
-    expect(matchStateSignal()!.readyStates).toEqual(initial.readyStates);
+    // readyStates from payload replaces local state
+    expect(matchStateSignal()!.readyStates).toEqual(updatedReadyStates);
   });
 
   it('PRESENCE_UPDATE is ignored when matchState is null', () => {
@@ -157,7 +162,7 @@ describe('LobbyComponent — socket messages', () => {
     messagesSubject.next({
       type: 'PRESENCE_UPDATE',
       matchId: 'match-1',
-      payload: { players: [] },
+      payload: { players: [], readyStates: {} },
     });
 
     expect(matchStateSignal()).toBeNull();

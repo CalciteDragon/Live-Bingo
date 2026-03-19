@@ -69,6 +69,7 @@ export interface MatchCompletedPayload {
 
 export interface PresenceUpdatePayload {
   players: Player[];
+  readyStates: Record<string, boolean>;
 }
 
 export type ServerMessage =
