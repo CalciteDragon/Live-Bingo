@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, Subject, share } from 'rxjs';
-import type { ClientMessage, ServerMessage } from '@bingo/shared';
+import type { ClientMessage, ServerMessage, WsErrorPayload } from '@bingo/shared';
 import { ClientIdService } from './client-id.service';
 import { environment } from '../../environments/environment';
 import { randomUUID } from './uuid';
@@ -16,6 +16,8 @@ export class MatchSocketService {
   readonly connectionStatus = signal<ConnectionStatus>('disconnected');
   /** True only during a reconnect attempt (not the initial connection). */
   readonly isReconnecting = signal(false);
+  /** Emits when the server replaces this session with a newer connection (e.g. second tab). */
+  readonly sessionReplaced = signal(false);
 
   private readonly messageSubject = new Subject<ServerMessage>();
   readonly messages$: Observable<ServerMessage> = this.messageSubject.asObservable().pipe(share());
@@ -33,6 +35,7 @@ export class MatchSocketService {
     this.closeSocket();
     this.intentionalDisconnect = false;
     this.reconnectAttempts = 0;
+    this.sessionReplaced.set(false);
     this.currentMatchId = matchId;
     this.openSocket(matchId);
   }
@@ -79,7 +82,14 @@ export class MatchSocketService {
 
     ws.addEventListener('message', (event: MessageEvent) => {
       try {
-        this.messageSubject.next(JSON.parse(event.data) as ServerMessage);
+        const msg = JSON.parse(event.data) as ServerMessage;
+        if (msg.type === 'ERROR' && (msg.payload as WsErrorPayload).code === 'SESSION_REPLACED') {
+          this.intentionalDisconnect = true;
+          this.cancelReconnect();
+          this.currentMatchId = null;
+          this.sessionReplaced.set(true);
+        }
+        this.messageSubject.next(msg);
       } catch {
         // ignore malformed frames
       }

@@ -66,6 +66,7 @@ function setup(initialState: MatchState | null = null) {
           disconnect:       mockDisconnect,
           connectionStatus: signal('connected'),
           isReconnecting:   signal(false),
+          sessionReplaced:  signal(false),
         },
       },
       {

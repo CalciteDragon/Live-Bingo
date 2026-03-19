@@ -227,6 +227,13 @@ export class LobbyComponent {
       }
       if (s?.status === 'Abandoned') void this.router.navigate(['/'], { queryParams: { abandoned: true } });
     });
+
+    effect(() => {
+      if (this.socket.sessionReplaced()) {
+        this.sessionStore.clearSession();
+        void this.router.navigate(['/'], { queryParams: { replaced: true } });
+      }
+    });
   }
 
   toggleReady(): void {

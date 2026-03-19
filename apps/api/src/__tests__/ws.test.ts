@@ -27,6 +27,7 @@ const EVENT_ID       = '00000000-0000-0000-0000-000000000010';
 class MockWebSocket extends EventEmitter {
   readyState = 1; // WebSocket.OPEN
   send = vi.fn();
+  close = vi.fn();
 
   /** Simulate incoming message from the remote peer */
   receive(data: unknown): void {
@@ -662,6 +663,21 @@ describe('handleDisconnect', () => {
     guestWs.emit('close');
     await flush();
     expect(getMatch(MATCH_ID)!.abandonTimer).toBeDefined(); // both disconnected
+  });
+
+  it('sends SESSION_REPLACED to stale socket and closes it when same clientId reconnects', async () => {
+    setMatch(MATCH_ID, { state: makeLobbyState(), sockets: new Map() });
+
+    const oldWs = await connectClient(HOST_CLIENT_ID);
+    oldWs.send.mockClear();
+
+    await connectClient(HOST_CLIENT_ID); // triggers SESSION_REPLACED on oldWs
+
+    // Old socket should have received an ERROR with SESSION_REPLACED
+    const errorMsg = oldWs.sent().find((m: any) => m.type === 'ERROR') as any;
+    expect(errorMsg).toBeDefined();
+    expect(errorMsg.payload.code).toBe('SESSION_REPLACED');
+    expect(oldWs.close).toHaveBeenCalled();
   });
 
   it('does not broadcast or persist when a stale socket fires close after reconnect', async () => {

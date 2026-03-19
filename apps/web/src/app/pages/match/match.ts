@@ -134,6 +134,13 @@ export class MatchComponent {
       if (s?.status === 'Abandoned') void this.router.navigate(['/'], { queryParams: { abandoned: true } });
       // Completed: no navigation — results overlay renders in-place
     });
+
+    effect(() => {
+      if (this.socket.sessionReplaced()) {
+        this.sessionStore.clearSession();
+        void this.router.navigate(['/'], { queryParams: { replaced: true } });
+      }
+    });
   }
 
   onCellClick(index: number): void {

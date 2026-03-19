@@ -9,7 +9,6 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Write integration tests for API endpoints and WebSocket handlers against a real Postgres instance (unit tests with mocked DB already exist) (make sure this is in a seperate command from npm run ci)
 - [ ] Harden idempotency and ACID behavior across in-memory registry and Postgres persistence paths
 - [ ] Add server-side WebSocket heartbeat (ping/pong every ~30s, terminate on no pong) so crashed/killed clients are detected within a bounded time window rather than relying on TCP keepalive (post-MVP)
-- [ ] On new WebSocket connection, explicitly disconnect and invalidate any pre-existing stale connection for the same clientId (e.g. second browser tab); send that stale client a redirect/error so it navigates to home
 - [ ] Host kick-player: add a KICK_PLAYER intent (lobby only); auto-kick a player after 30 s of disconnect in lobby
 
 ## `packages/shared`

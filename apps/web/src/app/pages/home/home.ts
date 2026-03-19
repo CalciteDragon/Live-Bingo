@@ -27,6 +27,15 @@ import { generateAlias } from '../../core/alias';
       </div>
     }
 
+    @if (replacedBanner()) {
+      <div class="banner banner--warning">
+        <span>Your session was replaced by another tab or window.</span>
+        <div class="banner__actions">
+          <button class="btn-ghost" (click)="replacedBanner.set(false)">Dismiss</button>
+        </div>
+      </div>
+    }
+
     @if (rejoinSession(); as session) {
       <div class="banner banner--info">
         <span>{{ session.route === '/match' ? 'A match is in progress.' : 'You were recently in a lobby.' }}</span>
@@ -104,6 +113,7 @@ export class HomeComponent {
   readonly aliasError      = signal<string | null>(null);
   readonly abandonedBanner = signal(false);
   readonly forbiddenBanner = signal(false);
+  readonly replacedBanner  = signal(false);
   readonly rejoinSession   = signal<{ matchId: string; route: '/lobby' | '/match'; joinCode?: string } | null>(null);
 
   constructor() {
@@ -119,6 +129,9 @@ export class HomeComponent {
       if (params.get('error') === 'forbidden') {
         this.forbiddenBanner.set(true);
         this.sessionStore.clear();
+      }
+      if (params.get('replaced') === 'true') {
+        this.replacedBanner.set(true);
       }
       const code = params.get('joinCode');
       if (code) {

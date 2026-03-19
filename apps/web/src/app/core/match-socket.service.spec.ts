@@ -222,6 +222,49 @@ describe('MatchSocketService', () => {
     expect(svc.connectionStatus()).toBe('disconnected');
   });
 
+  it('SESSION_REPLACED error prevents reconnect and sets sessionReplaced', () => {
+    vi.useFakeTimers();
+    try {
+      svc.connect('match-1');
+      const ws = MockWebSocket.instances[0];
+      ws.open();
+
+      // Server sends SESSION_REPLACED error
+      ws.receive({
+        type: 'ERROR',
+        matchId: 'match-1',
+        payload: { code: 'SESSION_REPLACED', message: 'Another connection was opened.' },
+      });
+
+      expect(svc.sessionReplaced()).toBe(true);
+
+      // Server then closes the socket
+      ws.close();
+
+      // Should NOT attempt to reconnect
+      expect(svc.connectionStatus()).toBe('disconnected');
+      expect(svc.isReconnecting()).toBe(false);
+      vi.advanceTimersByTime(5000);
+      expect(MockWebSocket.instances).toHaveLength(1); // no new socket
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('sessionReplaced is reset on new connect()', () => {
+    svc.connect('match-1');
+    MockWebSocket.instances[0].open();
+    MockWebSocket.instances[0].receive({
+      type: 'ERROR',
+      matchId: 'match-1',
+      payload: { code: 'SESSION_REPLACED', message: 'Replaced.' },
+    });
+    expect(svc.sessionReplaced()).toBe(true);
+
+    svc.connect('match-2');
+    expect(svc.sessionReplaced()).toBe(false);
+  });
+
   it('multiple subscribers share the same socket (share operator)', () => {
     const r1: ServerMessage[] = [];
     const r2: ServerMessage[] = [];

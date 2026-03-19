@@ -24,9 +24,22 @@ export function deleteMatch(matchId: string): void {
 
 export function registerSocket(matchId: string, clientId: string, ws: WebSocket): void {
   const entry = registry.get(matchId);
-  if (entry) {
-    entry.sockets.set(clientId, ws);
+  if (!entry) return;
+
+  const existingSocket = entry.sockets.get(clientId);
+  if (existingSocket && existingSocket !== ws && existingSocket.readyState === WebSocket.OPEN) {
+    sendTo(existingSocket, {
+      type: 'ERROR',
+      matchId,
+      payload: {
+        code: 'SESSION_REPLACED',
+        message: 'Another connection was opened for your session. This tab has been disconnected.',
+      },
+    });
+    existingSocket.close();
   }
+
+  entry.sockets.set(clientId, ws);
 }
 
 export function removeSocket(matchId: string, clientId: string): void {
