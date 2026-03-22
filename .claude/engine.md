@@ -86,14 +86,7 @@ Called by the server when countdown expires. Counts cells per player, highest co
 
 ## Goals List (src/goals.ts)
 
-`GOALS: readonly Goal[]` — 90 hardcoded Minecraft bingo goals with `difficulty` values (0.05–0.90) across categories:
-- Crafting & tools
-- Mining & resources
-- Exploration & structures
-- Mobs & combat
-- Food & farming
-- Achievements & feats
-- Completely random
+`GOALS: readonly Goal[]` — 121 hardcoded Minecraft bingo goals with `difficulty` values (0.00–1.00), sorted in ascending difficulty order:
 
 ```typescript
 interface Goal {
