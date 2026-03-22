@@ -417,6 +417,12 @@ describe('applyEvent', () => {
     expect(next.timer.startedAt).toBe(now);
   });
 
+  it('START_MATCH — timer.stoppedAt is always null regardless of prior state', () => {
+    const state = makeState({ timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00Z', stoppedAt: '2024-01-01T01:00:00Z', countdownDurationMs: null } });
+    const next = applyEvent(state, startMatch(), { nowIso: '2024-06-15T12:00:00Z', newCard: makeCard() });
+    expect(next.timer.stoppedAt).toBeNull();
+  });
+
   it('MARK_CELL — correct cell markedBy set to caller playerId', () => {
     const state = makeState({ status: 'InProgress' });
     const next = applyEvent(state, markCell(7));

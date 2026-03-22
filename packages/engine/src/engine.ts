@@ -164,7 +164,7 @@ export function applyEvent(
         ...state,
         status: 'InProgress',
         card: ctx.newCard ?? state.card,
-        timer: { ...state.timer, startedAt: ctx.nowIso ?? null },
+        timer: { ...state.timer, startedAt: ctx.nowIso ?? null, stoppedAt: null },
       };
 
     case 'MARK_CELL':
@@ -197,7 +197,7 @@ export function applyEvent(
       return {
         ...state,
         card: newCard,
-        timer: { ...state.timer, startedAt: ctx.nowIso ?? null },
+        timer: { ...state.timer, startedAt: ctx.nowIso ?? null, stoppedAt: null },
       };
     }
 
