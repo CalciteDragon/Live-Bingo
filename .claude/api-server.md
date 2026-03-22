@@ -88,9 +88,10 @@ All routes use `clientIdMiddleware` (validates `X-Client-Id` header via Zod).
 - Returns `{ matchId }`
 
 ### GET /matches/:id — Hydrate state
-- Prefers registry state over DB (more current)
+- Always queries DB for `join_code` and `join_code_expires_at` (not stored in registry)
+- Prefers registry state over DB state_json (more current)
 - Validates caller is a participant (`clientId` match)
-- Returns `GetMatchResponse`
+- Returns `GetMatchResponse` including `joinCode: string | null` (null if expired or no code on record)
 
 ## WebSocket Handling (src/ws/index.ts)
 

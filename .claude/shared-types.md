@@ -123,5 +123,5 @@ Zod schemas (trust boundary):
 Response types (plain TS):
 - `CreateMatchResponse` — `{ matchId, joinCode, joinUrl, state }`
 - `JoinMatchResponse` — `{ matchId, playerId, state }`
-- `GetMatchResponse` — `{ matchId, playerId, state }`
+- `GetMatchResponse` — `{ matchId, playerId, state, joinCode: string | null }`
 - `ResolveJoinCodeResponse` — `{ matchId }`

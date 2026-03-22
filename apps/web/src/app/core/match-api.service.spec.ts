@@ -64,7 +64,7 @@ describe('MatchApiService', () => {
   });
 
   it('getMatch calls GET /matches/:id', () => {
-    const resp: GetMatchResponse = { matchId: 'abc', playerId: 'p1', state: mockMatchState };
+    const resp: GetMatchResponse = { matchId: 'abc', playerId: 'p1', state: mockMatchState, joinCode: null };
     let result: GetMatchResponse | undefined;
     svc.getMatch('abc').subscribe(r => (result = r));
     const req = controller.expectOne(`${BASE}/matches/abc`);

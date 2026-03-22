@@ -23,16 +23,18 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Post-MVP: show a match miniplayer/quick-return UI when navigating away from an active match
 - [ ] Post-MVP: show connected/disconnected status indicators for players in-match
 - [ ] Post-MVP: improve opponent cell UX — currently opponent cells accept pointer cursor; add cursor hint that the cell is unclickable
+- [ ] Make bingo card fill screen better (too small on high resolutions)
+- [ ] Custom goals + only use custom goals option
+- [ ] Rejoin recent match home button
 
 ## CI
 
 - [ ] Add Postgres service to `test-api` job once DB integration is implemented
+- [ ] Add ESLint to `npm run ci`
+- [ ] Display total duration in `npm run ci` output
+
+## `apps/api`+`apps/web`
+
+- [ ] Rejoin ongoing match flow from join request (currently blocks on "This match has already started" even if you are a participant)
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
-- join code can still get lost on reconnect in certain edge cases
-- make bingo card fill screen better (too small on high resolutions)
-- rejoin ongoing match flow from join request (currently blocks on "This match has already started" even if you are a participant)
-- rejoin recent match home button
-- add esLint to npm run ci
-- custom goals + only use custom goals option
-- npm run ci total duration ms display

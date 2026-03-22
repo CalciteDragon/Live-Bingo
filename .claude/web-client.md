@@ -81,6 +81,7 @@ apps/web/src/
 - Ensures session store is populated before match routes
 - If `matchId` already matches: reconnects socket if disconnected
 - Otherwise: calls `GET /matches/:id` to hydrate, then connects socket
+  - Sets `joinCode` signal directly from API response (authoritative; no persisted-session fallback)
 - On FORBIDDEN: redirects to home with `?error=forbidden`
 
 ### TimerService

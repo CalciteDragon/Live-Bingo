@@ -189,24 +189,26 @@ matchRouter.get('/by-code/:code', async (req, res) => {
 // GET /matches/:id — initial state hydration
 matchRouter.get('/:id', async (req, res) => {
   const clientId = res.locals['clientId'] as string;
-  const matchId = req.params['id'] as string;
+  const matchId  = req.params['id'] as string;
+
+  // Always fetch from DB so we can return join_code alongside state.
+  // Registry state is preferred (fresher) but join_code is DB-only.
+  const { rows } = await db.query<{
+    state_json: MatchState;
+    join_code: string | null;
+    join_code_expires_at: Date | null;
+  }>(
+    'SELECT state_json, join_code, join_code_expires_at FROM matches WHERE match_id = $1',
+    [matchId],
+  );
+
+  if (rows.length === 0) {
+    res.status(404).json({ code: 'MATCH_NOT_FOUND', message: 'Match not found' });
+    return;
+  }
 
   const entry = getMatch(matchId);
-  let state: MatchState;
-
-  if (entry) {
-    state = entry.state;
-  } else {
-    const { rows } = await db.query<{ state_json: MatchState }>(
-      'SELECT state_json FROM matches WHERE match_id = $1',
-      [matchId],
-    );
-    if (rows.length === 0) {
-      res.status(404).json({ code: 'MATCH_NOT_FOUND', message: 'Match not found' });
-      return;
-    }
-    state = rows[0].state_json;
-  }
+  const state  = entry?.state ?? rows[0].state_json;
 
   const player = state.players.find((p) => p.clientId === clientId);
   if (!player) {
@@ -214,6 +216,12 @@ matchRouter.get('/:id', async (req, res) => {
     return;
   }
 
-  const response: GetMatchResponse = { matchId, playerId: player.playerId, state };
+  const { join_code, join_code_expires_at } = rows[0];
+  const joinCode =
+    join_code && join_code_expires_at && join_code_expires_at > new Date()
+      ? join_code
+      : null;
+
+  const response: GetMatchResponse = { matchId, playerId: player.playerId, state, joinCode };
   res.status(200).json(response);
 });
