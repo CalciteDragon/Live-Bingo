@@ -52,7 +52,7 @@ export const sessionGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
         'code' in err &&
         (err as { code: string }).code === 'FORBIDDEN';
       if (isForbidden) {
-        void router.navigate(['/'], { queryParams: { error: 'forbidden' } });
+        void router.navigate(['/'], { state: { error: 'forbidden' } });
       } else {
         void router.navigate(['/']);
       }

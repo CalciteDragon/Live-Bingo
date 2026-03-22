@@ -62,11 +62,12 @@ apps/web/src/
 
 ### MatchSocketService
 - WebSocket management with exponential backoff reconnection (max 30s)
-- Signals: `connectionStatus` ('connected'|'connecting'|'disconnected'), `isReconnecting`, `sessionReplaced`
+- Signals: `connectionStatus` ('connected'|'connecting'|'disconnected'), `isReconnecting`, `sessionReplaced`, `wasKicked`
 - Observable: `messages$` (all ServerMessage)
 - Methods: `connect(matchId)`, `disconnect()`, `send(ClientMessage)`
 - On connect: sends SYNC_STATE immediately
 - On SESSION_REPLACED error: sets `sessionReplaced` signal, stops reconnecting
+- On KICKED error: sets `wasKicked` signal, stops reconnecting
 - Reconnect logic: exponential backoff `1s * 2^attempt`, capped at 30s
 
 ### SessionStoreService
@@ -109,7 +110,7 @@ apps/web/src/
 - Create: calls `matchApi.createMatch()` → sets session → navigates to lobby
 - Join: validates 6-char code → navigates to `/join/:code`
 - Rejoin banner: shows if persisted session exists (5-min TTL)
-- Error banners: abandoned, forbidden, session-replaced
+- Error banners: abandoned, forbidden, kicked, session-replaced
 
 ### JoinComponent
 - Reads `:code` from route params
@@ -121,9 +122,40 @@ apps/web/src/
 - Shows: seed, join code, copy invite link, player list with ready/connected badges
 - Toggle ready button
 - Host controls: timer mode dropdown, countdown duration input (debounced 500ms), start match button
-- Socket message handling: STATE_SYNC/STATE_UPDATE → update matchState; PRESENCE_UPDATE → merge players; ERROR → show banner
+- Host action: kick player button (non-self, host-only)
+- Socket message handling: STATE_SYNC/STATE_UPDATE → update matchState; PRESENCE_UPDATE → merge players; ERROR (non-KICKED) → show banner; ERROR KICKED → suppress banner (effect handles redirect)
 - Countdown duration: uses optimistic local state with pending eventId tracking (avoids flicker during debounced sends)
-- Auto-navigates: InProgress → /match, Completed → /match, Abandoned → /, session replaced → /
+- Auto-navigates: InProgress → /match, Completed → /match, Abandoned → /, session replaced → /, kicked → /?kicked=true
+
+**Signals:**
+- `errorMessage` — `string | null`; displays ERROR messages from server
+- `linkCopied` — boolean; transient "Copied!" feedback (2s timeout)
+- `countdownDurationMs` — number; optimistic local state for countdown input
+- `isEditingCountdown` — boolean; flags when input has focus (prevents server broadcasts from overwriting)
+- `playerToKick` — `{ playerId, alias } | null`; non-null while a kick confirmation modal is open
+
+**Computed signals:**
+- `players` — all players from matchState
+- `readyStates` — ready state map from matchState
+- `playersWithLocalStatus` — players with WS connection status overlaid (live feedback)
+- `myReady` — current player's ready state
+- `amHost` — true if current player is host (slot 1)
+- `canStart` — true if host and all players ready
+- `timerMode` — timer mode from lobby settings (stopwatch|countdown)
+- `seed` — bingo card seed
+- `joinCode` — current player's join code
+- `isReconnecting` — true if WebSocket is reconnecting
+
+**Methods:**
+- `toggleReady()` — sends SET_READY intent (opposite of current state)
+- `onTimerModeChange(event)` — sends SET_LOBBY_SETTINGS intent with new timer mode
+- `onCountdownInput(event)` — updates local countdown state, debounces 500ms before sending
+- `onCountdownFocus()` / `onCountdownBlur()` — flags editing state (prevents clobbering)
+- `startMatch()` — sends START_MATCH intent (host-only)
+- `openKickConfirm(player)` — sets `playerToKick` to open the confirmation modal (host-only, non-self)
+- `confirmKick()` — sends KICK_PLAYER intent and clears `playerToKick`
+- `cancelKick()` — clears `playerToKick` without sending
+- `copyInviteLink()` — copies full join URL to clipboard; shows transient feedback
 
 ### MatchComponent
 - Shows: timer, player panel, 5x5 bingo board, host controls (reshuffle, back to lobby), results overlay

@@ -18,6 +18,8 @@ export class MatchSocketService {
   readonly isReconnecting = signal(false);
   /** Emits when the server replaces this session with a newer connection (e.g. second tab). */
   readonly sessionReplaced = signal(false);
+  /** Emits when the server kicks this client from the lobby. */
+  readonly wasKicked = signal(false);
 
   private readonly messageSubject = new Subject<ServerMessage>();
   readonly messages$: Observable<ServerMessage> = this.messageSubject.asObservable().pipe(share());
@@ -36,6 +38,7 @@ export class MatchSocketService {
     this.intentionalDisconnect = false;
     this.reconnectAttempts = 0;
     this.sessionReplaced.set(false);
+    this.wasKicked.set(false);
     this.currentMatchId = matchId;
     this.openSocket(matchId);
   }
@@ -88,6 +91,12 @@ export class MatchSocketService {
           this.cancelReconnect();
           this.currentMatchId = null;
           this.sessionReplaced.set(true);
+        }
+        if (msg.type === 'ERROR' && (msg.payload as WsErrorPayload).code === 'KICKED') {
+          this.intentionalDisconnect = true;
+          this.cancelReconnect();
+          this.currentMatchId = null;
+          this.wasKicked.set(true);
         }
         this.messageSubject.next(msg);
       } catch {

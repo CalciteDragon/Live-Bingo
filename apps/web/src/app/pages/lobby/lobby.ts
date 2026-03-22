@@ -13,7 +13,7 @@ import { SessionStoreService } from '../../core/session-store.service';
 import { MatchSocketService } from '../../core/match-socket.service';
 import { ClientIdService } from '../../core/client-id.service';
 import { isHost, isAllPlayersReady, buildClientMessage } from '../../core/match.helpers';
-import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
+import type { TimerMode, StateUpdatePayload, WsErrorPayload } from '@bingo/shared';
 
 @Component({
   selector: 'app-lobby',
@@ -72,6 +72,13 @@ import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
                 [class.badge--disconnected]="!player.connected">
                 {{ player.connected ? 'Connected' : 'Disconnected' }}
               </span>
+              @if (amHost() && !player.isMe) {
+                <button class="btn-danger"
+                  style="margin-left: auto; padding: 0.25rem 0.75rem; font-size: 0.8125rem"
+                  (click)="openKickConfirm(player)">
+                  Kick
+                </button>
+              }
             </div>
           }
         </div>
@@ -112,6 +119,19 @@ import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
         }
       </div>
     </div>
+
+    @if (playerToKick(); as target) {
+      <div class="modal-backdrop" (click)="cancelKick()">
+        <div class="modal" (click)="$event.stopPropagation()">
+          <h2>Kick player?</h2>
+          <p>{{ target.alias }} will be removed from the lobby.</p>
+          <div class="modal__actions">
+            <button class="btn-ghost" (click)="cancelKick()">Cancel</button>
+            <button class="btn-danger" (click)="confirmKick()">Kick {{ target.alias }}</button>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class LobbyComponent {
@@ -161,6 +181,7 @@ export class LobbyComponent {
   readonly linkCopied          = signal(false);
   readonly countdownDurationMs = signal<number>(300_000);
   readonly isEditingCountdown  = signal(false);
+  readonly playerToKick        = signal<{ playerId: string; alias: string } | null>(null);
 
   private readonly pendingCountdownEventId = signal<string | null>(null);
 
@@ -202,7 +223,10 @@ export class LobbyComponent {
             this.sessionStore.matchState.set({ ...current, players: msg.payload.players, readyStates: msg.payload.readyStates });
           }
         } else if (msg.type === 'ERROR') {
-          this.errorMessage.set(msg.payload.message);
+          const payload = msg.payload as WsErrorPayload;
+          if (payload.code !== 'KICKED') {
+            this.errorMessage.set(payload.message);
+          }
         }
       });
 
@@ -225,13 +249,20 @@ export class LobbyComponent {
         this.sessionStore.clearSession();
         void this.router.navigate(['/match', s.matchId]);
       }
-      if (s?.status === 'Abandoned') void this.router.navigate(['/'], { queryParams: { abandoned: true } });
+      if (s?.status === 'Abandoned') void this.router.navigate(['/'], { state: { abandoned: true } });
     });
 
     effect(() => {
       if (this.socket.sessionReplaced()) {
         this.sessionStore.clearSession();
-        void this.router.navigate(['/'], { queryParams: { replaced: true } });
+        void this.router.navigate(['/'], { state: { replaced: true } });
+      }
+    });
+
+    effect(() => {
+      if (this.socket.wasKicked()) {
+        this.sessionStore.clear();
+        void this.router.navigate(['/'], { state: { kicked: true } });
       }
     });
   }
@@ -273,6 +304,22 @@ export class LobbyComponent {
   startMatch(): void {
     const matchId = this.sessionStore.matchId()!;
     this.socket.send(buildClientMessage('START_MATCH', matchId, this.clientId, {}));
+  }
+
+  openKickConfirm(player: { playerId: string; alias: string | null | undefined }): void {
+    this.playerToKick.set({ playerId: player.playerId, alias: player.alias ?? 'Unknown' });
+  }
+
+  confirmKick(): void {
+    const target = this.playerToKick();
+    if (!target) return;
+    const matchId = this.sessionStore.matchId()!;
+    this.socket.send(buildClientMessage('KICK_PLAYER', matchId, this.clientId, { playerId: target.playerId }));
+    this.playerToKick.set(null);
+  }
+
+  cancelKick(): void {
+    this.playerToKick.set(null);
   }
 
   copyInviteLink(): void {

@@ -27,10 +27,12 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
 }
 
 function setup(initialState: MatchState | null = null) {
-  const matchStateSignal = signal<MatchState | null>(initialState);
-  const matchIdSignal    = signal<string | null>('match-1');
-  const playerIdSignal   = signal<string | null>('p1');
-  const joinCodeSignal   = signal<string | null>('ABC123');
+  const matchStateSignal      = signal<MatchState | null>(initialState);
+  const matchIdSignal         = signal<string | null>('match-1');
+  const playerIdSignal        = signal<string | null>('p1');
+  const joinCodeSignal        = signal<string | null>('ABC123');
+  const sessionReplacedSignal = signal(false);
+  const wasKickedSignal       = signal(false);
 
   const messagesSubject = new Subject<ServerMessage>();
 
@@ -66,7 +68,8 @@ function setup(initialState: MatchState | null = null) {
           disconnect:       mockDisconnect,
           connectionStatus: signal('connected'),
           isReconnecting:   signal(false),
-          sessionReplaced:  signal(false),
+          sessionReplaced:  sessionReplacedSignal,
+          wasKicked:        wasKickedSignal,
         },
       },
       {
@@ -83,6 +86,7 @@ function setup(initialState: MatchState | null = null) {
   return {
     fixture, comp,
     matchStateSignal, matchIdSignal, playerIdSignal,
+    sessionReplacedSignal, wasKickedSignal,
     messagesSubject,
     mockSend, mockConnect, mockDisconnect, mockNavigate, mockSaveSession, mockClearSession, mockClear,
   };
@@ -389,7 +393,7 @@ describe('LobbyComponent — status-route effect', () => {
     matchStateSignal.set(makeState({ matchId: 'match-1', status: 'Abandoned' }));
     TestBed.flushEffects();
 
-    expect(mockNavigate).toHaveBeenCalledWith(['/'], { queryParams: { abandoned: true } });
+    expect(mockNavigate).toHaveBeenCalledWith(['/'], { state: { abandoned: true } });
   });
 
   it('does not navigate when status is Lobby', () => {
@@ -450,5 +454,208 @@ describe('LobbyComponent — player list identity', () => {
 
     expect(me?.isMe).toBe(true);
     expect(other?.isMe).toBe(false);
+  });
+});
+
+describe('LobbyComponent — kick player', () => {
+  it('openKickConfirm sets playerToKick with resolved alias', () => {
+    const state = makeState();
+    const { comp } = setup(state);
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+
+    expect(comp.playerToKick()).toEqual({ playerId: 'p2', alias: 'Guest' });
+  });
+
+  it('openKickConfirm resolves null alias to "Unknown"', () => {
+    const state = makeState();
+    const { comp } = setup(state);
+
+    comp.openKickConfirm({ playerId: 'p2', alias: null });
+
+    expect(comp.playerToKick()).toEqual({ playerId: 'p2', alias: 'Unknown' });
+  });
+
+  it('cancelKick clears playerToKick', () => {
+    const state = makeState();
+    const { comp } = setup(state);
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    comp.cancelKick();
+
+    expect(comp.playerToKick()).toBeNull();
+  });
+
+  it('confirmKick sends KICK_PLAYER with correct playerId', () => {
+    const state = makeState();
+    const { comp, mockSend } = setup(state);
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    comp.confirmKick();
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const msg = mockSend.mock.calls[0]![0];
+    expect(msg.type).toBe('KICK_PLAYER');
+    expect(msg.payload.playerId).toBe('p2');
+    expect(msg.matchId).toBe('match-1');
+  });
+
+  it('confirmKick clears playerToKick signal after sending', () => {
+    const state = makeState();
+    const { comp } = setup(state);
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    comp.confirmKick();
+
+    expect(comp.playerToKick()).toBeNull();
+  });
+
+  it('confirmKick does nothing when playerToKick is null', () => {
+    const state = makeState();
+    const { comp, mockSend } = setup(state);
+
+    comp.confirmKick();
+
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('host sees kick button on non-self player cards', () => {
+    // playerIdSignal defaults to 'p1' (host) in setup()
+    const state = makeState();
+    const { fixture } = setup(state);
+    fixture.detectChanges();
+
+    // p2's card should have a kick button; p1's should not
+    const playerCards = fixture.nativeElement.querySelectorAll('.player-card') as NodeListOf<Element>;
+    // Find cards with a .btn-danger button inside them (the kick button)
+    const cardsWithKick = Array.from(playerCards).filter(card => card.querySelector('.btn-danger'));
+    expect(cardsWithKick).toHaveLength(1);
+  });
+
+  it('host does not see kick button on own player card', () => {
+    const state = makeState();
+    const { fixture } = setup(state);
+    fixture.detectChanges();
+
+    // The host's card (p1) should have no kick button
+    const playerCards = fixture.nativeElement.querySelectorAll('.player-card') as NodeListOf<Element>;
+    const hostCard = Array.from(playerCards).find(card =>
+      card.textContent?.includes('Host')
+    );
+    expect(hostCard?.querySelector('.btn-danger')).toBeNull();
+  });
+
+  it('non-host does not see any kick buttons', () => {
+    const state = makeState();
+    const { fixture, playerIdSignal } = setup(state);
+    playerIdSignal.set('p2'); // switch to non-host
+    fixture.detectChanges();
+
+    const buttons = fixture.nativeElement.querySelectorAll('.player-card .btn-danger');
+    expect(buttons).toHaveLength(0);
+  });
+
+  it('clicking kick button opens confirmation modal with correct alias', () => {
+    const state = makeState();
+    const { fixture } = setup(state);
+    fixture.detectChanges();
+
+    // Click the kick button (there is exactly one, on the guest's card)
+    const kickBtn = fixture.nativeElement.querySelector('.player-card .btn-danger') as HTMLButtonElement;
+    kickBtn.click();
+    fixture.detectChanges();
+
+    const modal = fixture.nativeElement.querySelector('.modal') as HTMLElement | null;
+    expect(modal).not.toBeNull();
+    expect(modal?.textContent).toContain('Guest');
+  });
+
+  it('clicking Cancel in modal closes it without sending', () => {
+    const state = makeState();
+    const { fixture, comp, mockSend } = setup(state);
+    fixture.detectChanges();
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    fixture.detectChanges();
+
+    const cancelBtn = fixture.nativeElement.querySelector('.modal .btn-ghost') as HTMLButtonElement;
+    cancelBtn.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.modal')).toBeNull();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('clicking modal backdrop closes modal without sending', () => {
+    const state = makeState();
+    const { fixture, comp, mockSend } = setup(state);
+    fixture.detectChanges();
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    fixture.detectChanges();
+
+    const backdrop = fixture.nativeElement.querySelector('.modal-backdrop') as HTMLElement;
+    backdrop.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.modal')).toBeNull();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('clicking Confirm Kick button in modal sends KICK_PLAYER and closes modal', () => {
+    const state = makeState();
+    const { fixture, comp, mockSend } = setup(state);
+    fixture.detectChanges();
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    fixture.detectChanges();
+
+    // The modal has two .btn-danger buttons: the kick button in the player card and the confirm button in the modal.
+    // Query specifically inside .modal to get the confirm button.
+    const confirmBtn = fixture.nativeElement.querySelector('.modal .btn-danger') as HTMLButtonElement;
+    confirmBtn.click();
+    fixture.detectChanges();
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const msg = mockSend.mock.calls[0]![0];
+    expect(msg.type).toBe('KICK_PLAYER');
+    expect(msg.payload.playerId).toBe('p2');
+    expect(fixture.nativeElement.querySelector('.modal')).toBeNull();
+  });
+});
+
+describe('LobbyComponent — kicked player UX', () => {
+  it('does not set errorMessage when ERROR code is KICKED', () => {
+    const { comp, messagesSubject } = setup();
+
+    messagesSubject.next({
+      type: 'ERROR',
+      matchId: 'match-1',
+      payload: { code: 'KICKED', message: 'You have been removed from the match by the host' },
+    });
+
+    expect(comp.errorMessage()).toBeNull();
+  });
+
+  it('navigates to / with ?kicked=true when wasKicked becomes true', () => {
+    const { wasKickedSignal, mockNavigate, mockClear } = setup();
+
+    wasKickedSignal.set(true);
+    TestBed.flushEffects();
+
+    expect(mockNavigate).toHaveBeenCalledWith(['/'], { state: { kicked: true } });
+    expect(mockClear).toHaveBeenCalledOnce();
+  });
+
+  it('still sets errorMessage for other error codes when wasKicked is false', () => {
+    const { comp, messagesSubject } = setup();
+
+    messagesSubject.next({
+      type: 'ERROR',
+      matchId: 'match-1',
+      payload: { code: 'INVALID_STATE', message: 'Something went wrong' },
+    });
+
+    expect(comp.errorMessage()).toBe('Something went wrong');
   });
 });

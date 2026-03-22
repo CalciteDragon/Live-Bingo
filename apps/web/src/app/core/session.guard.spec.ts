@@ -188,7 +188,7 @@ describe('sessionGuard — hydration (mismatched store)', () => {
 });
 
 describe('sessionGuard — error cases', () => {
-  it('redirects to /?error=forbidden and emits false on FORBIDDEN', () => {
+  it('redirects to / with state.error=forbidden and emits false on FORBIDDEN', () => {
     const { mockNavigate } = setupGuard({
       getMatchReturn: throwError(() => ({ code: 'FORBIDDEN', message: '' })),
     });
@@ -197,7 +197,7 @@ describe('sessionGuard — error cases', () => {
       (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(v => (allowed = v)),
     );
     expect(allowed).toBe(false);
-    expect(mockNavigate).toHaveBeenCalledWith(['/'], { queryParams: { error: 'forbidden' } });
+    expect(mockNavigate).toHaveBeenCalledWith(['/'], { state: { error: 'forbidden' } });
   });
 
   it('redirects to / without query params and emits false on MATCH_NOT_FOUND', () => {

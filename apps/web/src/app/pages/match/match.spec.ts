@@ -122,7 +122,7 @@ describe('MatchComponent — status-route effect', () => {
     matchStateSignal.set(makeState({ matchId: 'match-1', status: 'Abandoned' }));
     TestBed.flushEffects();
 
-    expect(mockNavigate).toHaveBeenCalledWith(['/'], { queryParams: { abandoned: true } });
+    expect(mockNavigate).toHaveBeenCalledWith(['/'], { state: { abandoned: true } });
   });
 
   it('does not navigate when status is InProgress', () => {

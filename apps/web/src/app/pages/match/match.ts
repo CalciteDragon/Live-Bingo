@@ -131,14 +131,14 @@ export class MatchComponent {
     effect(() => {
       const s = this.state();
       if (s?.status === 'Lobby')     void this.router.navigate(['/lobby', s.matchId]);
-      if (s?.status === 'Abandoned') void this.router.navigate(['/'], { queryParams: { abandoned: true } });
+      if (s?.status === 'Abandoned') void this.router.navigate(['/'], { state: { abandoned: true } });
       // Completed: no navigation — results overlay renders in-place
     });
 
     effect(() => {
       if (this.socket.sessionReplaced()) {
         this.sessionStore.clearSession();
-        void this.router.navigate(['/'], { queryParams: { replaced: true } });
+        void this.router.navigate(['/'], { state: { replaced: true } });
       }
     });
   }
