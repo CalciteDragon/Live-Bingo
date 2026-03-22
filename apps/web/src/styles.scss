@@ -403,11 +403,11 @@ label {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(5, 1fr);
-  gap: 5px;
+  gap: 10px;
   width: 100%;
   max-width: 500px;
   aspect-ratio: 1;
-  padding: 5px;
+  padding: 10px;
   background: var(--border);
   border: 1px solid var(--border);
   border-radius: var(--radius);
