@@ -209,7 +209,7 @@ export function applyEvent(
           ...state.card,
           cells: state.card.cells.map((c) => ({ ...c, markedBy: null })),
         },
-        timer: { ...state.timer, startedAt: null },
+        timer: { ...state.timer, startedAt: null, stoppedAt: null },
         readyStates: {},
         result: null,
       };
@@ -223,7 +223,7 @@ export function applyEvent(
         ...state,
         status: 'InProgress',
         card: rematchCard,
-        timer: { ...state.timer, startedAt: ctx.nowIso ?? null },
+        timer: { ...state.timer, startedAt: ctx.nowIso ?? null, stoppedAt: null },
         result: null,
       };
     }

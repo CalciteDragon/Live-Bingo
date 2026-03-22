@@ -87,7 +87,7 @@ function makeLobbyState(overrides: Partial<MatchState> = {}): MatchState {
     readyStates: {},
     lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
     card: { seed: 1, cells: BLANK_CELLS.map(c => ({ ...c })) },
-    timer: { mode: 'stopwatch', startedAt: null, countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
     ...overrides,
   };
@@ -107,7 +107,7 @@ function makeInProgressState(overrides: Partial<MatchState> = {}): MatchState {
   return makeTwoPlayerLobbyState({
     status: 'InProgress',
     readyStates: { [HOST_PLAYER_ID]: true, [GUEST_PLAYER_ID]: true },
-    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: null, countdownDurationMs: null },
     ...overrides,
   });
 }
@@ -508,6 +508,7 @@ describe('processMessage — accepted events', () => {
     expect(finalState.status).toBe('Completed');
     expect(finalState.result?.reason).toBe('line');
     expect(finalState.result?.winnerId).toBe(HOST_PLAYER_ID);
+    expect(typeof finalState.timer.stoppedAt).toBe('string');
 
     // Broadcast order: STATE_UPDATE then MATCH_COMPLETED
     const msgs = hostWs.sent() as any[];
@@ -564,7 +565,7 @@ describe('processMessage — accepted events', () => {
       state: makeTwoPlayerLobbyState({
         readyStates: { [HOST_PLAYER_ID]: true, [GUEST_PLAYER_ID]: true },
         lobbySettings: { timerMode: 'countdown', countdownDurationMs: DURATION },
-        timer: { mode: 'countdown', startedAt: null, countdownDurationMs: DURATION },
+        timer: { mode: 'countdown', startedAt: null, stoppedAt: null, countdownDurationMs: DURATION },
       }),
       sockets: new Map(),
     });
@@ -607,7 +608,7 @@ describe('processMessage — accepted events', () => {
         status: 'Completed',
         result: { winnerId: HOST_PLAYER_ID, reason: 'line' },
         lobbySettings: { timerMode: 'countdown', countdownDurationMs: DURATION },
-        timer: { mode: 'countdown', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: DURATION },
+        timer: { mode: 'countdown', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: null, countdownDurationMs: DURATION },
       }),
       sockets: new Map(),
     });
@@ -783,7 +784,7 @@ describe('handleDisconnect', () => {
     const COUNTDOWN_MS = ABANDON_MS + 5_000; // longer so abandon fires first
     setMatch(MATCH_ID, {
       state: makeInProgressState({
-        timer: { mode: 'countdown', startedAt: new Date().toISOString(), countdownDurationMs: COUNTDOWN_MS },
+        timer: { mode: 'countdown', startedAt: new Date().toISOString(), stoppedAt: null, countdownDurationMs: COUNTDOWN_MS },
       }),
       sockets: new Map(),
     });
@@ -1122,7 +1123,7 @@ describe('expireCountdown (via scheduleCountdownTimer)', () => {
     });
     return makeInProgressState({
       card: { seed: 1, cells },
-      timer: { mode: 'countdown', startedAt: new Date().toISOString(), countdownDurationMs: DURATION },
+      timer: { mode: 'countdown', startedAt: new Date().toISOString(), stoppedAt: null, countdownDurationMs: DURATION },
     });
   }
 
@@ -1144,6 +1145,7 @@ describe('expireCountdown (via scheduleCountdownTimer)', () => {
     expect(state.status).toBe('Completed');
     expect(state.result?.reason).toBe('timer_expiry');
     expect(state.result?.winnerId).toBe(HOST_PLAYER_ID);
+    expect(typeof state.timer.stoppedAt).toBe('string');
 
     const msgs = hostWs.sent() as any[];
     expect(msgs.find(m => m.type === 'STATE_UPDATE')?.payload.state.status).toBe('Completed');
@@ -1227,7 +1229,7 @@ describe('expireCountdown (via scheduleCountdownTimer)', () => {
     setMatch(MATCH_ID, {
       state: makeInProgressState({
         card: { seed: 1, cells: cellsNearWin },
-        timer: { mode: 'countdown', startedAt: new Date().toISOString(), countdownDurationMs: DURATION },
+        timer: { mode: 'countdown', startedAt: new Date().toISOString(), stoppedAt: null, countdownDurationMs: DURATION },
       }),
       sockets: new Map(),
     });

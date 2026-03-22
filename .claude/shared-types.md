@@ -39,7 +39,8 @@ interface LobbySettings {
 
 interface TimerState {
   mode: TimerMode
-  startedAt: string | null   // ISO 8601
+  startedAt: string | null   // ISO 8601, null until match starts
+  stoppedAt: string | null   // ISO 8601, null until match completes (set by server for client freeze)
   countdownDurationMs: number | null
 }
 

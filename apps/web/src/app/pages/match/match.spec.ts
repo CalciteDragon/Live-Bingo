@@ -26,7 +26,7 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
     readyStates: { p1: true, p2: true },
     lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
     card: { seed: 42, cells: Array.from({ length: 25 }, (_, i) => makeCell(i)) },
-    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: null, countdownDurationMs: null },
     result: null,
     ...overrides,
   };
@@ -277,6 +277,33 @@ describe('MatchComponent — player panel', () => {
     const { fixture } = setup(makeState({ status: 'InProgress' }));
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-player-panel')).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// showResults signal
+// ---------------------------------------------------------------------------
+
+describe('MatchComponent — showResults', () => {
+  it('defaults to true', () => {
+    const { component } = setup(makeState({ status: 'Completed', result: { winnerId: 'p1', reason: 'line' } }));
+    expect(component.showResults()).toBe(true);
+  });
+
+  it('can be set to false', () => {
+    const { component } = setup(makeState({ status: 'Completed', result: { winnerId: 'p1', reason: 'line' } }));
+    component.showResults.set(false);
+    expect(component.showResults()).toBe(false);
+  });
+
+  it('resets to true when isCompleted transitions to true (rematch flow)', () => {
+    const { component, matchStateSignal } = setup(makeState({ status: 'InProgress' }));
+    component.showResults.set(false);
+
+    matchStateSignal.set(makeState({ status: 'Completed', result: { winnerId: 'p1', reason: 'line' } }));
+    TestBed.flushEffects();
+
+    expect(component.showResults()).toBe(true);
   });
 });
 

@@ -38,7 +38,7 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
       seed: 12345,
       cells: Array.from({ length: 25 }, (_, i) => ({ index: i, goal: `Goal ${i}`, markedBy: null })),
     },
-    timer: { mode: 'stopwatch', startedAt: null, countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
     ...overrides,
   };

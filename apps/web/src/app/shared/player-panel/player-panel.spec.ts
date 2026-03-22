@@ -17,7 +17,7 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
     readyStates: { p1: true, p2: true },
     lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
     card: { seed: 42, cells: Array.from({ length: 25 }, (_, i) => ({ index: i, goal: `G${i}`, markedBy: null })) },
-    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: null, countdownDurationMs: null },
     result: null,
     ...overrides,
   };

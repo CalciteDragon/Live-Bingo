@@ -98,7 +98,12 @@ function applyAndCheckWin(
   let newState = applyEvent(state, message, ctx);
   const winResult = checkWin(newState) ?? null;
   if (winResult) {
-    newState = { ...newState, status: 'Completed', result: winResult };
+    newState = {
+      ...newState,
+      status: 'Completed',
+      result: winResult,
+      timer: { ...newState.timer, stoppedAt: ctx.nowIso },
+    };
   }
   return { newState, winResult };
 }

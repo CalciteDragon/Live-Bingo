@@ -16,7 +16,7 @@ const mockMatchState: MatchState = {
   readyStates: {},
   lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
   card: { seed: 1, cells: [] },
-  timer: { mode: 'stopwatch', startedAt: null, countdownDurationMs: null },
+  timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
   result: null,
 };
 

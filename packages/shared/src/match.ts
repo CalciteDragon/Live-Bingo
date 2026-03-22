@@ -36,6 +36,7 @@ export interface LobbySettings {
 export interface TimerState {
   mode: TimerMode;
   startedAt: string | null; // ISO 8601 timestamp, null until match starts
+  stoppedAt: string | null; // ISO 8601 timestamp, null until match completes
   countdownDurationMs: number | null; // null in stopwatch mode
 }
 

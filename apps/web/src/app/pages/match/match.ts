@@ -43,6 +43,11 @@ import { buildClientMessage, buildPlayerColorMap, isHost } from '../../core/matc
     <div class="match-page">
       <div class="match-header">
         <div class="match-timer">{{ displayTimer$ | async }}</div>
+        @if (isCompleted() && !showResults()) {
+          <button class="btn-ghost match-header__view-results" (click)="showResults.set(true)">
+            View Results
+          </button>
+        }
       </div>
 
       <div class="match-layout">
@@ -69,8 +74,8 @@ import { buildClientMessage, buildPlayerColorMap, isHost } from '../../core/matc
         </div>
       }
 
-      @if (isCompleted()) {
-        <app-results-overlay />
+      @if (isCompleted() && showResults()) {
+        <app-results-overlay (viewBoard)="showResults.set(false)" />
       }
     </div>
   `,
@@ -104,6 +109,7 @@ export class MatchComponent {
   readonly isReconnecting = computed(() => this.socket.isReconnecting());
 
   readonly errorMessage = signal<string | null>(null);
+  readonly showResults   = signal(true);
 
   readonly displayTimer$: Observable<string> = toObservable(
     computed(() => this.state()?.timer ?? null),
@@ -133,6 +139,12 @@ export class MatchComponent {
       if (s?.status === 'Lobby')     void this.router.navigate(['/lobby', s.matchId]);
       if (s?.status === 'Abandoned') void this.router.navigate(['/'], { state: { abandoned: true } });
       // Completed: no navigation — results overlay renders in-place
+    });
+
+    effect(() => {
+      if (this.isCompleted()) {
+        this.showResults.set(true);
+      }
     });
 
     effect(() => {

@@ -45,7 +45,7 @@ matchRouter.post('/', async (req, res) => {
     readyStates: {},
     lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
     card,
-    timer: { mode: 'stopwatch', startedAt: null, countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
   };
 

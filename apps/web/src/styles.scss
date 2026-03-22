@@ -373,7 +373,14 @@ label {
 .match-header {
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 1rem;
   margin-bottom: 1.25rem;
+}
+
+.match-header__view-results {
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.75rem;
 }
 
 .match-timer {

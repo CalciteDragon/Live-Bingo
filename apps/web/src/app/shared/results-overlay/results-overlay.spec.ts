@@ -26,7 +26,7 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
         ...Array.from({ length: 22 }, (_, i) => ({ index: i + 3, goal: `G${i + 3}`, markedBy: null })),
       ],
     },
-    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: '2024-01-01T00:04:32.000Z', countdownDurationMs: null },
     result: { winnerId: 'p1', reason: 'line' },
     ...overrides,
   };
@@ -57,7 +57,7 @@ function make3PlayerState(overrides: Partial<MatchState> = {}): MatchState {
       ],
     },
     // p1=3, p2=2, p3=1 → ranks 1, 2, 3
-    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: '2024-01-01T00:04:32.000Z', countdownDurationMs: null },
     result: { winnerId: 'p1', reason: 'majority' },
     ...overrides,
   };
@@ -166,19 +166,47 @@ describe('ResultsOverlayComponent — score summary', () => {
 });
 
 describe('ResultsOverlayComponent — host-only buttons', () => {
-  it('shows Rematch and Back to Lobby buttons for host (slot 1)', () => {
+  it('shows View Board, Rematch and Back to Lobby buttons for host (slot 1)', () => {
     const { fixture } = setup(makeState(), 'p1');
     const text: string = fixture.nativeElement.textContent;
+    expect(text).toContain('View Board');
     expect(text).toContain('Rematch');
     expect(text).toContain('Back to Lobby');
   });
 
-  it('does not show action buttons for guest (slot 2)', () => {
+  it('shows View Board button for guest (slot 2) but not host actions', () => {
     const { fixture } = setup(makeState(), 'p2');
     const text: string = fixture.nativeElement.textContent;
+    expect(text).toContain('View Board');
     expect(text).not.toContain('Rematch');
     expect(text).not.toContain('Back to Lobby');
     expect(text).toContain('Waiting for host');
+  });
+});
+
+describe('ResultsOverlayComponent — viewBoard output', () => {
+  it('emits viewBoard when View Board button is clicked (host)', () => {
+    const { fixture } = setup(makeState(), 'p1');
+    const viewBoardSpy = vi.fn();
+    fixture.componentInstance.viewBoard.subscribe(viewBoardSpy);
+
+    const buttons: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('button');
+    const viewBoardBtn = Array.from(buttons).find(b => b.textContent?.trim() === 'View Board');
+    viewBoardBtn?.click();
+
+    expect(viewBoardSpy).toHaveBeenCalledOnce();
+  });
+
+  it('emits viewBoard when View Board button is clicked (guest)', () => {
+    const { fixture } = setup(makeState(), 'p2');
+    const viewBoardSpy = vi.fn();
+    fixture.componentInstance.viewBoard.subscribe(viewBoardSpy);
+
+    const buttons: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('button');
+    const viewBoardBtn = Array.from(buttons).find(b => b.textContent?.trim() === 'View Board');
+    viewBoardBtn?.click();
+
+    expect(viewBoardSpy).toHaveBeenCalledOnce();
   });
 });
 

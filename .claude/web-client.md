@@ -86,6 +86,7 @@ apps/web/src/
 ### TimerService
 - `getDisplayTimer$(timer: TimerState) → Observable<string>`
 - Emits `MM:SS` every second (stopwatch: counts up, countdown: counts down to 0)
+- When `timer.stoppedAt` is set: returns `of(frozenValue)` immediately — no live interval created. Freeze value computed from `stoppedAt - startedAt` (server-authoritative, avoids clock-drift between clients)
 
 ### Helpers (match.helpers.ts)
 
@@ -161,8 +162,10 @@ apps/web/src/
 - Shows: timer, player panel, 5x5 bingo board, host controls (reshuffle, back to lobby), results overlay
 - Cell click: if own cell → UNMARK_CELL; if empty → MARK_CELL; if opponent's → no-op
 - Reshuffle: only enabled when no cells marked
-- Timer: reactive Observable via toObservable + switchMap
+- Timer: reactive Observable via toObservable + switchMap; frozen when `timer.stoppedAt` is set
 - Auto-navigates: Lobby → /lobby, Abandoned → /
+- `showResults = signal(true)` — controls overlay visibility; reset to `true` whenever `isCompleted()` transitions to `true` (rematch flow). When `false`, a "View Results" button appears in the match header to re-open the overlay.
+- `(viewBoard)` output from `ResultsOverlayComponent` sets `showResults` to `false`
 
 ## Shared Components
 
@@ -180,8 +183,9 @@ apps/web/src/
 - Headline: "You won!" / "You came 2nd!" / "It's a draw!"
 - Win reason badge (Line/Majority/Time expired)
 - Score summary (all players sorted by cell count)
-- Host actions: Rematch, Back to Lobby
-- Non-host: "Waiting for host..."
+- Output: `viewBoard` — emitted when "View Board" button is clicked (both host and non-host)
+- Host actions: View Board, Rematch, Back to Lobby
+- Non-host: View Board button + "Waiting for host..."
 
 ## Root Component (app.ts)
 
