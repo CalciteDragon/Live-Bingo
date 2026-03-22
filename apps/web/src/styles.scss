@@ -434,6 +434,8 @@ label {
   transition: background-color 0.12s, transform 0.08s, box-shadow 0.12s;
   text-align: center;
   overflow: hidden;
+  outline: 3px solid var(--difficulty-color, transparent);
+  outline-offset: 2px;
 }
 
 .bingo-cell:hover:not(.bingo-cell--inactive):not(.bingo-cell--marked) {

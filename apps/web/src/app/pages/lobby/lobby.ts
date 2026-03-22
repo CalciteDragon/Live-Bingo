@@ -13,7 +13,13 @@ import { SessionStoreService } from '../../core/session-store.service';
 import { MatchSocketService } from '../../core/match-socket.service';
 import { ClientIdService } from '../../core/client-id.service';
 import { isHost, isAllPlayersReady, buildClientMessage } from '../../core/match.helpers';
-import type { TimerMode, StateUpdatePayload, WsErrorPayload } from '@bingo/shared';
+import {
+  DEFAULT_DIFFICULTY,
+  DEFAULT_DIFFICULTY_SPREAD,
+  type TimerMode,
+  type StateUpdatePayload,
+  type WsErrorPayload,
+} from '@bingo/shared';
 
 @Component({
   selector: 'app-lobby',
@@ -113,9 +119,45 @@ import type { TimerMode, StateUpdatePayload, WsErrorPayload } from '@bingo/share
             </div>
           }
 
+          <div class="form-group">
+            <label>Difficulty — {{ (localDifficulty() * 100).toFixed(0) }}%</label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              [value]="localDifficulty()"
+              (input)="onDifficultyInput($event)"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Difficulty Spread — ±{{ localDifficultySpread().toFixed(3) }}</label>
+            <input
+              type="range"
+              min="0.05"
+              max="0.5"
+              step="0.025"
+              [value]="localDifficultySpread()"
+              (input)="onDifficultySpreadInput($event)"
+            />
+          </div>
+
           <button class="btn-primary full-width" [disabled]="!canStart()" (click)="startMatch()">
             Start Match
           </button>
+        }
+
+        @if (!amHost()) {
+          <hr class="divider" />
+          <div class="form-group">
+            <label>Difficulty — {{ (difficulty() * 100).toFixed(0) }}%</label>
+            <input type="range" min="0" max="1" step="0.05" [value]="difficulty()" disabled />
+          </div>
+          <div class="form-group">
+            <label>Difficulty Spread — ±{{ difficultySpread().toFixed(3) }}</label>
+            <input type="range" min="0.05" max="0.5" step="0.025" [value]="difficultySpread()" disabled />
+          </div>
         }
       </div>
     </div>
@@ -171,21 +213,27 @@ export class LobbyComponent {
     const s = this.state();
     return this.amHost() && s != null && isAllPlayersReady(s);
   });
-  readonly timerMode = computed(() => this.state()?.lobbySettings.timerMode ?? 'stopwatch');
+  readonly timerMode       = computed(() => this.state()?.lobbySettings.timerMode ?? 'stopwatch');
+  readonly difficulty      = computed(() => this.state()?.lobbySettings.difficulty ?? DEFAULT_DIFFICULTY);
+  readonly difficultySpread = computed(() => this.state()?.lobbySettings.difficultySpread ?? DEFAULT_DIFFICULTY_SPREAD);
   readonly seed      = computed(() => this.state()?.card.seed ?? null);
   readonly joinCode  = computed(() => this.sessionStore.joinCode());
 
   readonly isReconnecting = computed(() => this.socket.isReconnecting());
 
-  readonly errorMessage        = signal<string | null>(null);
-  readonly linkCopied          = signal(false);
-  readonly countdownDurationMs = signal<number>(300_000);
-  readonly isEditingCountdown  = signal(false);
-  readonly playerToKick        = signal<{ playerId: string; alias: string } | null>(null);
+  readonly errorMessage         = signal<string | null>(null);
+  readonly linkCopied           = signal(false);
+  readonly countdownDurationMs  = signal<number>(300_000);
+  readonly isEditingCountdown   = signal(false);
+  readonly playerToKick         = signal<{ playerId: string; alias: string } | null>(null);
+  readonly localDifficulty      = signal<number>(DEFAULT_DIFFICULTY);
+  readonly localDifficultySpread = signal<number>(DEFAULT_DIFFICULTY_SPREAD);
 
   private readonly pendingCountdownEventId = signal<string | null>(null);
 
-  private readonly countdownSubject = new Subject<number>();
+  private readonly countdownSubject       = new Subject<number>();
+  private readonly difficultySubject      = new Subject<number>();
+  private readonly difficultySpreadSubject = new Subject<number>();
 
   constructor() {
     const matchId = this.sessionStore.matchId();
@@ -201,6 +249,10 @@ export class LobbyComponent {
             // A fresh sync is authoritative and clears any stale local pending intent.
             this.pendingCountdownEventId.set(null);
           }
+
+          // Sync difficulty sliders — safe to always update since only the host changes them
+          this.localDifficulty.set(msg.payload.state.lobbySettings.difficulty);
+          this.localDifficultySpread.set(msg.payload.state.lobbySettings.difficultySpread);
 
           const cd = msg.payload.state.lobbySettings.countdownDurationMs;
           if (cd == null) return;
@@ -242,6 +294,20 @@ export class LobbyComponent {
         this.socket.send(message);
       });
 
+    this.difficultySubject
+      .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
+      .subscribe(difficulty => {
+        const matchId = this.sessionStore.matchId()!;
+        this.socket.send(buildClientMessage('SET_LOBBY_SETTINGS', matchId, this.clientId, { difficulty }));
+      });
+
+    this.difficultySpreadSubject
+      .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
+      .subscribe(difficultySpread => {
+        const matchId = this.sessionStore.matchId()!;
+        this.socket.send(buildClientMessage('SET_LOBBY_SETTINGS', matchId, this.clientId, { difficultySpread }));
+      });
+
     effect(() => {
       const s = this.sessionStore.matchState();
       if (s?.status === 'InProgress') void this.router.navigate(['/match', s.matchId]);
@@ -280,7 +346,7 @@ export class LobbyComponent {
     this.socket.send(
       buildClientMessage('SET_LOBBY_SETTINGS', matchId, this.clientId, {
         timerMode: mode,
-        ...(mode === 'countdown' ? { countdownDurationMs: this.countdownDurationMs() } : {}),
+        countdownDurationMs: mode === 'countdown' ? this.countdownDurationMs() : null,
       }),
     );
   }
@@ -299,6 +365,18 @@ export class LobbyComponent {
 
   onCountdownBlur(): void {
     this.isEditingCountdown.set(false);
+  }
+
+  onDifficultyInput(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.localDifficulty.set(value);
+    this.difficultySubject.next(value);
+  }
+
+  onDifficultySpreadInput(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.localDifficultySpread.set(value);
+    this.difficultySpreadSubject.next(value);
   }
 
   startMatch(): void {

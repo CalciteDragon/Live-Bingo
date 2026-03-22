@@ -75,7 +75,7 @@ async function flush(): Promise<void> {
 // ─── State factories ─────────────────────────────────────────────────────────
 
 const BLANK_CELLS = Array.from({ length: 25 }, (_, i) => ({
-  index: i, goal: `Goal ${i}`, markedBy: null as string | null,
+  index: i, goal: `Goal ${i}`, difficulty: 0.5, markedBy: null as string | null,
 }));
 
 function makeLobbyState(overrides: Partial<MatchState> = {}): MatchState {
@@ -85,7 +85,7 @@ function makeLobbyState(overrides: Partial<MatchState> = {}): MatchState {
     status: 'Lobby',
     players: [{ playerId: HOST_PLAYER_ID, clientId: HOST_CLIENT_ID, slot: 1, alias: 'Host', connected: false }],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: { seed: 1, cells: BLANK_CELLS.map(c => ({ ...c })) },
     timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
@@ -564,7 +564,7 @@ describe('processMessage — accepted events', () => {
     setMatch(MATCH_ID, {
       state: makeTwoPlayerLobbyState({
         readyStates: { [HOST_PLAYER_ID]: true, [GUEST_PLAYER_ID]: true },
-        lobbySettings: { timerMode: 'countdown', countdownDurationMs: DURATION },
+        lobbySettings: { timerMode: 'countdown', countdownDurationMs: DURATION, difficulty: 0.5, difficultySpread: 0.175 },
         timer: { mode: 'countdown', startedAt: null, stoppedAt: null, countdownDurationMs: DURATION },
       }),
       sockets: new Map(),
@@ -607,7 +607,7 @@ describe('processMessage — accepted events', () => {
       state: makeTwoPlayerLobbyState({
         status: 'Completed',
         result: { winnerId: HOST_PLAYER_ID, reason: 'line' },
-        lobbySettings: { timerMode: 'countdown', countdownDurationMs: DURATION },
+        lobbySettings: { timerMode: 'countdown', countdownDurationMs: DURATION, difficulty: 0.5, difficultySpread: 0.175 },
         timer: { mode: 'countdown', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: null, countdownDurationMs: DURATION },
       }),
       sockets: new Map(),

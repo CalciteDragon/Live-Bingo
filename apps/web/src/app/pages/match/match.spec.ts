@@ -11,7 +11,7 @@ import { TimerService } from '../../core/timer.service';
 import type { MatchState, ServerMessage, Cell } from '@bingo/shared';
 
 function makeCell(index: number, markedBy: string | null = null): Cell {
-  return { index, goal: `Goal ${index}`, markedBy };
+  return { index, goal: `Goal ${index}`, difficulty: 0.5, markedBy };
 }
 
 function makeState(overrides: Partial<MatchState> = {}): MatchState {
@@ -24,7 +24,7 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
       { playerId: 'p2', clientId: 'c2', slot: 2, alias: 'Guest', connected: true },
     ],
     readyStates: { p1: true, p2: true },
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: { seed: 42, cells: Array.from({ length: 25 }, (_, i) => makeCell(i)) },
     timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: null, countdownDurationMs: null },
     result: null,

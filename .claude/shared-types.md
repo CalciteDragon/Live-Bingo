@@ -24,6 +24,7 @@ interface Player {
 interface Cell {
   index: number        // 0-24, row-major
   goal: string
+  difficulty: number   // 0.0–1.0, reflects goal difficulty
   markedBy: string | null  // playerId or null
 }
 
@@ -35,6 +36,8 @@ interface BingoCard {
 interface LobbySettings {
   timerMode: TimerMode
   countdownDurationMs: number | null
+  difficulty: number       // 0.0–1.0, default 0.5
+  difficultySpread: number // 0.05–0.5, default 0.175
 }
 
 interface TimerState {
@@ -70,7 +73,7 @@ Zod-validated `ClientMessageSchema` (discriminated union on `type`):
 |---|---|---|
 | `SYNC_STATE` | `{}` | any |
 | `SET_READY` | `{ ready: boolean }` | any |
-| `SET_LOBBY_SETTINGS` | `{ timerMode, countdownDurationMs? }` | host |
+| `SET_LOBBY_SETTINGS` | `{ timerMode?, countdownDurationMs?, difficulty?, difficultySpread? }` (all optional — partial merge) | host |
 | `START_MATCH` | `{}` | host |
 | `MARK_CELL` | `{ cellIndex: 0-24 }` | any |
 | `UNMARK_CELL` | `{ cellIndex: 0-24 }` | any |

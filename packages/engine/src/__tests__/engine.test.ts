@@ -20,7 +20,7 @@ const HOST: Player = { playerId: HOST_ID, clientId: HOST_CLIENT, slot: 1, alias:
 const GUEST: Player = { playerId: GUEST_ID, clientId: GUEST_CLIENT, slot: 2, alias: null, connected: true };
 
 function makeCell(index: number, markedBy: string | null = null): Cell {
-  return { index, goal: `Goal ${index}`, markedBy };
+  return { index, goal: `Goal ${index}`, difficulty: 0.5, markedBy };
 }
 
 function makeCard(overrides?: Partial<BingoCard>): BingoCard {
@@ -38,7 +38,7 @@ function makeState(overrides?: Partial<MatchState>): MatchState {
     status: 'Lobby',
     players: [HOST, GUEST],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: makeCard(),
     timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
@@ -80,11 +80,15 @@ const kickPlayer = (playerId: string, clientId = HOST_CLIENT): ClientMessage =>
   ({ ...BASE, type: 'KICK_PLAYER', clientId, payload: { playerId } });
 
 const setLobbySettings = (
-  timerMode: 'stopwatch' | 'countdown',
-  countdownDurationMs?: number,
+  payload: {
+    timerMode?: 'stopwatch' | 'countdown';
+    countdownDurationMs?: number | null;
+    difficulty?: number;
+    difficultySpread?: number;
+  },
   clientId = HOST_CLIENT,
 ): ClientMessage =>
-  ({ ...BASE, type: 'SET_LOBBY_SETTINGS', clientId, payload: { timerMode, countdownDurationMs } });
+  ({ ...BASE, type: 'SET_LOBBY_SETTINGS', clientId, payload });
 
 // ---------------------------------------------------------------------------
 // Error assertion helper
@@ -131,27 +135,33 @@ describe('validateEvent', () => {
   });
 
   describe('SET_LOBBY_SETTINGS', () => {
-    it('passes for host in Lobby', () => {
-      expect(() => validateEvent(makeState(), setLobbySettings('stopwatch'))).not.toThrow();
+    it('passes for host in Lobby (timerMode only)', () => {
+      expect(() => validateEvent(makeState(), setLobbySettings({ timerMode: 'stopwatch' }))).not.toThrow();
     });
     it('passes for countdown with duration', () => {
-      expect(() => validateEvent(makeState(), setLobbySettings('countdown', 300000))).not.toThrow();
+      expect(() => validateEvent(makeState(), setLobbySettings({ timerMode: 'countdown', countdownDurationMs: 300000 }))).not.toThrow();
+    });
+    it('passes for difficulty-only payload', () => {
+      expect(() => validateEvent(makeState(), setLobbySettings({ difficulty: 0.7 }))).not.toThrow();
+    });
+    it('passes for difficultySpread-only payload', () => {
+      expect(() => validateEvent(makeState(), setLobbySettings({ difficultySpread: 0.3 }))).not.toThrow();
     });
     it('throws INVALID_STATE when not in Lobby', () => {
       expectEngineError(
-        () => validateEvent(makeState({ status: 'InProgress' }), setLobbySettings('stopwatch')),
+        () => validateEvent(makeState({ status: 'InProgress' }), setLobbySettings({ timerMode: 'stopwatch' })),
         'INVALID_STATE',
       );
     });
     it('throws NOT_AUTHORIZED for guest', () => {
       expectEngineError(
-        () => validateEvent(makeState(), setLobbySettings('stopwatch', undefined, GUEST_CLIENT)),
+        () => validateEvent(makeState(), setLobbySettings({ timerMode: 'stopwatch' }, GUEST_CLIENT)),
         'NOT_AUTHORIZED',
       );
     });
     it('throws INVALID_EVENT for countdown without duration', () => {
       expectEngineError(
-        () => validateEvent(makeState(), setLobbySettings('countdown')),
+        () => validateEvent(makeState(), setLobbySettings({ timerMode: 'countdown' })),
         'INVALID_EVENT',
       );
     });
@@ -361,27 +371,52 @@ describe('validateEvent', () => {
 // ---------------------------------------------------------------------------
 
 describe('applyEvent', () => {
-  it('SET_LOBBY_SETTINGS — updates lobbySettings and timer mode to stopwatch', () => {
-    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300000 } });
-    const next = applyEvent(state, setLobbySettings('stopwatch'));
-    expect(next.lobbySettings).toEqual({ timerMode: 'stopwatch', countdownDurationMs: null });
+  it('SET_LOBBY_SETTINGS — updates lobbySettings and timer mode to stopwatch (with explicit countdownDurationMs: null)', () => {
+    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300000, difficulty: 0.5, difficultySpread: 0.175 } });
+    const next = applyEvent(state, setLobbySettings({ timerMode: 'stopwatch', countdownDurationMs: null }));
+    expect(next.lobbySettings).toEqual({ timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 });
     expect(next.timer.mode).toBe('stopwatch');
     expect(next.timer.countdownDurationMs).toBeNull();
   });
 
+  it('SET_LOBBY_SETTINGS — timerMode-only partial update preserves countdownDurationMs', () => {
+    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300000, difficulty: 0.5, difficultySpread: 0.175 } });
+    const next = applyEvent(state, setLobbySettings({ timerMode: 'stopwatch' }));
+    // With partial merge, countdownDurationMs is NOT cleared unless explicitly included
+    expect(next.lobbySettings.timerMode).toBe('stopwatch');
+    expect(next.lobbySettings.countdownDurationMs).toBe(300000);
+  });
+
   it('SET_LOBBY_SETTINGS — updates lobbySettings and timer mode to countdown', () => {
-    const next = applyEvent(makeState(), setLobbySettings('countdown', 600000));
-    expect(next.lobbySettings).toEqual({ timerMode: 'countdown', countdownDurationMs: 600000 });
+    const next = applyEvent(makeState(), setLobbySettings({ timerMode: 'countdown', countdownDurationMs: 600000 }));
+    expect(next.lobbySettings).toEqual({ timerMode: 'countdown', countdownDurationMs: 600000, difficulty: 0.5, difficultySpread: 0.175 });
     expect(next.timer.mode).toBe('countdown');
     expect(next.timer.countdownDurationMs).toBe(600000);
   });
 
   it('SET_LOBBY_SETTINGS — does not affect other state', () => {
     const state = makeState({ readyStates: { [HOST_ID]: true } });
-    const next = applyEvent(state, setLobbySettings('stopwatch'));
+    const next = applyEvent(state, setLobbySettings({ timerMode: 'stopwatch' }));
     expect(next.readyStates).toEqual(state.readyStates);
     expect(next.players).toEqual(state.players);
     expect(next.card).toEqual(state.card);
+  });
+
+  it('SET_LOBBY_SETTINGS — partial update (difficulty only) preserves timerMode and does not touch timer', () => {
+    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300000, difficulty: 0.5, difficultySpread: 0.175 } });
+    const next = applyEvent(state, setLobbySettings({ difficulty: 0.8 }));
+    expect(next.lobbySettings.difficulty).toBe(0.8);
+    expect(next.lobbySettings.timerMode).toBe('countdown');
+    expect(next.lobbySettings.countdownDurationMs).toBe(300000);
+    expect(next.timer).toEqual(state.timer); // timer unchanged
+  });
+
+  it('SET_LOBBY_SETTINGS — partial update (difficultySpread only) preserves all other settings', () => {
+    const next = applyEvent(makeState(), setLobbySettings({ difficultySpread: 0.3 }));
+    expect(next.lobbySettings.difficultySpread).toBe(0.3);
+    expect(next.lobbySettings.timerMode).toBe('stopwatch');
+    expect(next.lobbySettings.difficulty).toBe(0.5);
+    expect(next.timer).toEqual(makeState().timer);
   });
 
   it('SET_READY — updates ready state for caller; other states unchanged', () => {

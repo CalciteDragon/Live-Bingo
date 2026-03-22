@@ -33,10 +33,10 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
     status: 'Lobby',
     players: [{ playerId: HOST_PLAYER_ID, clientId: HOST_CLIENT_ID, slot: 1, alias: 'Host', connected: false }],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: {
       seed: 12345,
-      cells: Array.from({ length: 25 }, (_, i) => ({ index: i, goal: `Goal ${i}`, markedBy: null })),
+      cells: Array.from({ length: 25 }, (_, i) => ({ index: i, goal: `Goal ${i}`, difficulty: 0.5, markedBy: null })),
     },
     timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
@@ -77,6 +77,10 @@ describe('POST /matches', () => {
     expect(res.body.state.players[0].slot).toBe(1);
     expect(res.body.state.lobbySettings.timerMode).toBe('stopwatch');
     expect(res.body.state.lobbySettings.countdownDurationMs).toBeNull();
+    expect(res.body.state.lobbySettings.difficulty).toBe(0.5);
+    expect(res.body.state.lobbySettings.difficultySpread).toBe(0.175);
+    expect(res.body.state.card.cells).toHaveLength(25);
+    expect(typeof res.body.state.card.cells[0].difficulty).toBe('number');
   });
 
   it('returns 400 when X-Client-Id header is missing', async () => {

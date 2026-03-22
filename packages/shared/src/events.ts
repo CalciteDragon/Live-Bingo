@@ -19,7 +19,12 @@ const baseClientFields = {
 export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('SYNC_STATE'),         ...baseClientFields, payload: z.object({}) }),
   z.object({ type: z.literal('SET_READY'),          ...baseClientFields, payload: z.object({ ready: z.boolean() }) }),
-  z.object({ type: z.literal('SET_LOBBY_SETTINGS'), ...baseClientFields, payload: z.object({ timerMode: z.enum(['stopwatch', 'countdown']), countdownDurationMs: z.number().int().positive().optional() }) }),
+  z.object({ type: z.literal('SET_LOBBY_SETTINGS'), ...baseClientFields, payload: z.object({
+    timerMode: z.enum(['stopwatch', 'countdown']).optional(),
+    countdownDurationMs: z.number().positive().nullable().optional(),
+    difficulty: z.number().min(0).max(1).optional(),
+    difficultySpread: z.number().min(0.05).max(0.5).optional(),
+  }) }),
   z.object({ type: z.literal('START_MATCH'),        ...baseClientFields, payload: z.object({}) }),
   z.object({ type: z.literal('MARK_CELL'),          ...baseClientFields, payload: z.object({ cellIndex: z.number().int().min(0).max(24) }) }),
   z.object({ type: z.literal('UNMARK_CELL'),        ...baseClientFields, payload: z.object({ cellIndex: z.number().int().min(0).max(24) }) }),

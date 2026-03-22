@@ -76,13 +76,17 @@ function validateEngineRules(state: MatchState, message: ClientMessage): EngineV
 
 // ─── Stage 7: Apply event and check win ──────────────────────────────────────
 
-function buildEngineContext(message: ClientMessage) {
+function buildEngineContext(message: ClientMessage, state: MatchState) {
   const needsNewCard =
     message.type === 'START_MATCH' ||
     message.type === 'RESHUFFLE_BOARD' ||
     message.type === 'REMATCH';
   const newCard = needsNewCard
-    ? generateBoard(Math.floor(Math.random() * 2 ** 32))
+    ? generateBoard(
+        Math.floor(Math.random() * 2 ** 32),
+        state.lobbySettings.difficulty,
+        state.lobbySettings.difficultySpread,
+      )
     : undefined;
   return {
     nowIso: new Date().toISOString(),
@@ -267,7 +271,7 @@ export async function processMessage(
     : undefined;
 
   // Stage 7 — Build engine context, apply event, and check for win
-  const ctx = buildEngineContext(message);
+  const ctx = buildEngineContext(message, entry.state);
   const { newState, winResult } = applyAndCheckWin(entry.state, message, ctx);
 
   // Stage 8 — Persist to database (transactional)

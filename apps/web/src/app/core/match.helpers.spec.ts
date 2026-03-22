@@ -11,7 +11,7 @@ import {
 import type { MatchState, Player, Cell } from '@bingo/shared';
 
 function makeCell(index: number, markedBy: string | null = null): Cell {
-  return { index, goal: `Goal ${index}`, markedBy };
+  return { index, goal: `Goal ${index}`, difficulty: 0.5, markedBy };
 }
 
 function makeState(overrides: Partial<MatchState> = {}): MatchState {
@@ -21,7 +21,7 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
     status: 'Lobby',
     players: [],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: { seed: 1, cells: [] },
     timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,

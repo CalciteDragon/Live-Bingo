@@ -18,7 +18,7 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
       { playerId: 'p2', clientId: 'c2', slot: 2, alias: 'Guest', connected: true },
     ],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: { seed: 42, cells: [] },
     timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
@@ -118,7 +118,7 @@ describe('LobbyComponent — socket messages', () => {
 
   it('STATE_SYNC syncs countdownDurationMs when lobbySettings has a value', () => {
     const { comp, messagesSubject } = setup();
-    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 120_000 } });
+    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 120_000, difficulty: 0.5, difficultySpread: 0.175 } });
 
     messagesSubject.next({ type: 'STATE_SYNC', matchId: 'match-1', payload: { state } });
 
@@ -134,7 +134,7 @@ describe('LobbyComponent — socket messages', () => {
     comp.onCountdownInput({ target: { value: '200000' } } as unknown as Event);
 
     const syncedState = makeState({
-      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 240_000 },
+      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 240_000, difficulty: 0.5, difficultySpread: 0.175 },
     });
     messagesSubject.next({ type: 'STATE_SYNC', matchId: 'match-1', payload: { state: syncedState } });
 
@@ -274,7 +274,7 @@ describe('LobbyComponent — timer settings', () => {
     expect(msg.payload.countdownDurationMs).toBeDefined();
   });
 
-  it('onTimerModeChange to stopwatch sends SET_LOBBY_SETTINGS without countdownDurationMs', () => {
+  it('onTimerModeChange to stopwatch sends SET_LOBBY_SETTINGS with countdownDurationMs: null', () => {
     const state = makeState();
     const { comp, mockSend } = setup(state);
 
@@ -283,11 +283,11 @@ describe('LobbyComponent — timer settings', () => {
     const msg = mockSend.mock.calls[0]![0];
     expect(msg.type).toBe('SET_LOBBY_SETTINGS');
     expect(msg.payload.timerMode).toBe('stopwatch');
-    expect(msg.payload.countdownDurationMs).toBeUndefined();
+    expect(msg.payload.countdownDurationMs).toBeNull();
   });
 
   it('ignores non-ack STATE_UPDATE countdown while local intent is pending', async () => {
-    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300_000 } });
+    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300_000, difficulty: 0.5, difficultySpread: 0.175 } });
     const { comp, mockSend, messagesSubject } = setup(state);
 
     comp.onCountdownInput({ target: { value: '180000' } } as unknown as Event);
@@ -297,7 +297,7 @@ describe('LobbyComponent — timer settings', () => {
     const pendingEventId = mockSend.mock.calls[0]![0].eventId as string;
 
     const otherUpdate = makeState({
-      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 120_000 },
+      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 120_000, difficulty: 0.5, difficultySpread: 0.175 },
     });
     messagesSubject.next({
       type: 'STATE_UPDATE',
@@ -308,7 +308,7 @@ describe('LobbyComponent — timer settings', () => {
     expect(comp.countdownDurationMs()).toBe(180_000);
 
     const ackUpdate = makeState({
-      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 175_000 },
+      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 175_000, difficulty: 0.5, difficultySpread: 0.175 },
     });
     messagesSubject.next({
       type: 'STATE_UPDATE',
@@ -320,14 +320,14 @@ describe('LobbyComponent — timer settings', () => {
   });
 
   it('does not overwrite countdown while actively editing and no pending ack', () => {
-    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300_000 } });
+    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300_000, difficulty: 0.5, difficultySpread: 0.175 } });
     const { comp, messagesSubject } = setup(state);
 
     comp.onCountdownInput({ target: { value: '210000' } } as unknown as Event);
     comp.onCountdownFocus();
 
     const incoming = makeState({
-      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 150_000 },
+      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 150_000, difficulty: 0.5, difficultySpread: 0.175 },
     });
     messagesSubject.next({
       type: 'STATE_UPDATE',
@@ -433,6 +433,62 @@ describe('LobbyComponent — socket lifecycle', () => {
   it('does not call disconnect()', () => {
     const { mockDisconnect } = setup();
     expect(mockDisconnect).not.toHaveBeenCalled();
+  });
+});
+
+describe('LobbyComponent — difficulty sliders', () => {
+  it('onDifficultyInput updates localDifficulty and sends debounced SET_LOBBY_SETTINGS', async () => {
+    const state = makeState();
+    const { comp, mockSend } = setup(state);
+
+    comp.onDifficultyInput({ target: { value: '0.8' } } as unknown as Event);
+
+    expect(comp.localDifficulty()).toBe(0.8);
+
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const msg = mockSend.mock.calls[0]![0];
+    expect(msg.type).toBe('SET_LOBBY_SETTINGS');
+    expect(msg.payload.difficulty).toBe(0.8);
+    expect(msg.payload.timerMode).toBeUndefined();
+  });
+
+  it('onDifficultySpreadInput updates localDifficultySpread and sends debounced SET_LOBBY_SETTINGS', async () => {
+    const state = makeState();
+    const { comp, mockSend } = setup(state);
+
+    comp.onDifficultySpreadInput({ target: { value: '0.3' } } as unknown as Event);
+
+    expect(comp.localDifficultySpread()).toBe(0.3);
+
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const msg = mockSend.mock.calls[0]![0];
+    expect(msg.type).toBe('SET_LOBBY_SETTINGS');
+    expect(msg.payload.difficultySpread).toBe(0.3);
+    expect(msg.payload.timerMode).toBeUndefined();
+  });
+
+  it('STATE_SYNC syncs localDifficulty and localDifficultySpread from server state', () => {
+    const { comp, messagesSubject } = setup();
+    const state = makeState({ lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.9, difficultySpread: 0.4 } });
+
+    messagesSubject.next({ type: 'STATE_SYNC', matchId: 'match-1', payload: { state } });
+
+    expect(comp.localDifficulty()).toBe(0.9);
+    expect(comp.localDifficultySpread()).toBe(0.4);
+  });
+
+  it('STATE_UPDATE syncs localDifficulty and localDifficultySpread from server state', () => {
+    const { comp, messagesSubject } = setup();
+    const state = makeState({ lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.2, difficultySpread: 0.1 } });
+
+    messagesSubject.next({ type: 'STATE_UPDATE', matchId: 'match-1', payload: { state } });
+
+    expect(comp.localDifficulty()).toBe(0.2);
+    expect(comp.localDifficultySpread()).toBe(0.1);
   });
 });
 

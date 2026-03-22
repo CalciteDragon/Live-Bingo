@@ -28,9 +28,17 @@ export class BingoCellComponent {
     return m ? (this.playerColorMap()[m] ?? null) : null;
   }
 
-  protected cellStyle(): { '--cell-color': string } | Record<string, never> {
+  get difficultyColor(): string {
+    const hue = (1 - this.cell().difficulty) * 120;
+    return `hsl(${hue}, 70%, 50%)`;
+  }
+
+  protected cellStyle(): Record<string, string> {
     const color = this.cellColor();
-    return color ? { '--cell-color': color } : {};
+    return {
+      ...(color ? { '--cell-color': color } : {}),
+      '--difficulty-color': this.difficultyColor,
+    };
   }
 
   protected onClick(): void {

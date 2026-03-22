@@ -10,7 +10,12 @@ import type {
   GetMatchResponse,
   ResolveJoinCodeResponse,
 } from '@bingo/shared';
-import { CreateMatchBodySchema, JoinMatchBodySchema } from '@bingo/shared';
+import {
+  CreateMatchBodySchema,
+  JoinMatchBodySchema,
+  DEFAULT_DIFFICULTY,
+  DEFAULT_DIFFICULTY_SPREAD,
+} from '@bingo/shared';
 import { db } from '../db/index.js';
 import { getMatch, setMatch } from '../match-registry.js';
 import { clientIdMiddleware } from '../middleware/client-id.js';
@@ -36,14 +41,19 @@ matchRouter.post('/', async (req, res) => {
   const joinCode = randomBytes(3).toString('hex').toUpperCase();
   const joinCodeExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-  const card = generateBoard(seed);
+  const card = generateBoard(seed, DEFAULT_DIFFICULTY, DEFAULT_DIFFICULTY_SPREAD);
   const state: MatchState = {
     matchId,
     matchMode: 'ffa',
     status: 'Lobby',
     players: [{ playerId, clientId, slot: 1, alias, connected: false }],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: {
+      timerMode: 'stopwatch',
+      countdownDurationMs: null,
+      difficulty: DEFAULT_DIFFICULTY,
+      difficultySpread: DEFAULT_DIFFICULTY_SPREAD,
+    },
     card,
     timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,

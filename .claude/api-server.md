@@ -23,7 +23,8 @@ apps/api/
 │       ├── routes.test.ts      REST endpoint tests
 │       └── ws.test.ts          WebSocket handler tests
 ├── migrations/
-│   └── 1740574800000_initial_schema.sql
+│   ├── 1740574800000_initial_schema.sql
+│   └── 1742515200000_add_difficulty_settings.sql
 ├── package.json
 ├── vitest.config.ts
 └── tsconfig.json
@@ -134,7 +135,7 @@ All routes use `clientIdMiddleware` (validates `X-Client-Id` header via Zod).
 11. **Lifecycle broadcasts**: MATCH_STARTED / MATCH_COMPLETED as appropriate
 12. **Timer reconciliation**: cancel/start countdown timers based on event type
 
-`buildEngineContext(message)`: generates new board (random seed) for START_MATCH/RESHUFFLE_BOARD/REMATCH; always provides `nowIso`.
+`buildEngineContext(message, state)`: generates new board (random seed, using `state.lobbySettings.difficulty` and `state.lobbySettings.difficultySpread`) for START_MATCH/RESHUFFLE_BOARD/REMATCH; always provides `nowIso`.
 
 ## Timers (src/ws/match-timers.ts)
 

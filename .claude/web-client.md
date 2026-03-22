@@ -123,7 +123,7 @@ apps/web/src/
 ### LobbyComponent
 - Shows: seed, join code, copy invite link, player list with ready/connected badges
 - Toggle ready button
-- Host controls: timer mode dropdown, countdown duration input (debounced 500ms), start match button
+- Host controls: timer mode dropdown, countdown duration input (debounced 500ms), difficulty slider (debounced 300ms), difficulty spread slider (debounced 300ms), start match button
 - Host action: kick player button (non-self, host-only)
 - Socket message handling: STATE_SYNC/STATE_UPDATE → update matchState; PRESENCE_UPDATE → merge players; ERROR (non-KICKED) → show banner; ERROR KICKED → suppress banner (effect handles redirect)
 - Countdown duration: uses optimistic local state with pending eventId tracking (avoids flicker during debounced sends)
@@ -135,6 +135,8 @@ apps/web/src/
 - `countdownDurationMs` — number; optimistic local state for countdown input
 - `isEditingCountdown` — boolean; flags when input has focus (prevents server broadcasts from overwriting)
 - `playerToKick` — `{ playerId, alias } | null`; non-null while a kick confirmation modal is open
+- `localDifficulty` — number; optimistic local state for difficulty slider (synced from STATE_SYNC/STATE_UPDATE)
+- `localDifficultySpread` — number; optimistic local state for spread slider
 
 **Computed signals:**
 - `players` — all players from matchState
@@ -144,15 +146,19 @@ apps/web/src/
 - `amHost` — true if current player is host (slot 1)
 - `canStart` — true if host and all players ready
 - `timerMode` — timer mode from lobby settings (stopwatch|countdown)
+- `difficulty` — difficulty from lobby settings (read-only display for guests)
+- `difficultySpread` — spread from lobby settings (read-only display for guests)
 - `seed` — bingo card seed
 - `joinCode` — current player's join code
 - `isReconnecting` — true if WebSocket is reconnecting
 
 **Methods:**
 - `toggleReady()` — sends SET_READY intent (opposite of current state)
-- `onTimerModeChange(event)` — sends SET_LOBBY_SETTINGS intent with new timer mode
+- `onTimerModeChange(event)` — sends SET_LOBBY_SETTINGS with `{ timerMode, countdownDurationMs: null | current }`
 - `onCountdownInput(event)` — updates local countdown state, debounces 500ms before sending
 - `onCountdownFocus()` / `onCountdownBlur()` — flags editing state (prevents clobbering)
+- `onDifficultyInput(event)` — updates `localDifficulty`, debounces 300ms before sending `SET_LOBBY_SETTINGS { difficulty }`
+- `onDifficultySpreadInput(event)` — updates `localDifficultySpread`, debounces 300ms before sending `SET_LOBBY_SETTINGS { difficultySpread }`
 - `startMatch()` — sends START_MATCH intent (host-only)
 - `openKickConfirm(player)` — sets `playerToKick` to open the confirmation modal (host-only, non-self)
 - `confirmKick()` — sends KICK_PLAYER intent and clears `playerToKick`
@@ -176,6 +182,8 @@ apps/web/src/
 - Inputs: `cell` (Cell), `playerColorMap` (Record<string, string>), `isActive` (boolean)
 - Output: `cellClick` (emits cell index)
 - Uses CSS custom property `--cell-color` for dynamic player coloring
+- `difficultyColor` — computed `hsl(hue, 70%, 50%)` where `hue = (1 - difficulty) * 120` (green→red)
+- Rendered as CSS `outline: 3px solid var(--difficulty-color, transparent)` ring outside the cell border
 
 ### PlayerPanelComponent
 - Reads state from SessionStoreService

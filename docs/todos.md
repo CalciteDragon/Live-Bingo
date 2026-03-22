@@ -16,8 +16,6 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 
 ## `packages/engine`
 
-- [ ] Make the center square (index 12) always a "hard" goal from the goal pool
-
 ## `apps/web`
 
 - [ ] Post-MVP: show a match miniplayer/quick-return UI when navigating away from an active match
@@ -34,7 +32,5 @@ Running list of deferred work and known gaps. Update this file whenever a stub, 
 - [ ] Display total duration in `npm run ci` output
 
 ## `apps/api`+`apps/web`
-
-- [ ] Rejoin ongoing match flow from join request (currently blocks on "This match has already started" even if you are a participant)
 
 ## `user-added-todos` — temporary holding area; auto-sorted into sections above on next interaction
