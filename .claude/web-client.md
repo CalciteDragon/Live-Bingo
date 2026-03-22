@@ -162,9 +162,11 @@ apps/web/src/
 - Shows: timer, player panel, 5x5 bingo board, host controls (reshuffle, back to lobby), results overlay
 - Cell click: if own cell → UNMARK_CELL; if empty → MARK_CELL; if opponent's → no-op
 - Reshuffle: only enabled when no cells marked
+- Back to Lobby: host-only; clicking opens a confirmation modal before sending `BACK_TO_LOBBY`
 - Timer: reactive Observable via toObservable + switchMap; frozen when `timer.stoppedAt` is set
 - Auto-navigates: Lobby → /lobby, Abandoned → /
 - `showResults = signal(true)` — controls overlay visibility; reset to `true` whenever `isCompleted()` transitions to `true` (rematch flow). When `false`, a "View Results" button appears in the match header to re-open the overlay.
+- `showBackToLobbyConfirm = signal(false)` — true while the "Return to lobby?" confirmation modal is open
 - `(viewBoard)` output from `ResultsOverlayComponent` sets `showResults` to `false`
 
 ## Shared Components

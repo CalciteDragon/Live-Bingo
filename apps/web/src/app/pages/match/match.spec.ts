@@ -308,6 +308,42 @@ describe('MatchComponent — showResults', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Back to Lobby confirmation
+// ---------------------------------------------------------------------------
+
+describe('MatchComponent — back to lobby confirmation', () => {
+  it('showBackToLobbyConfirm defaults to false', () => {
+    const { component } = setup();
+    expect(component.showBackToLobbyConfirm()).toBe(false);
+  });
+
+  it('openBackToLobbyConfirm sets showBackToLobbyConfirm to true', () => {
+    const { component } = setup();
+    component.openBackToLobbyConfirm();
+    expect(component.showBackToLobbyConfirm()).toBe(true);
+  });
+
+  it('cancelBackToLobby sets showBackToLobbyConfirm to false without sending', () => {
+    const { component, mockSend } = setup();
+    component.openBackToLobbyConfirm();
+    component.cancelBackToLobby();
+    expect(component.showBackToLobbyConfirm()).toBe(false);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('confirmBackToLobby sends BACK_TO_LOBBY and closes the modal', () => {
+    const { component, mockSend } = setup();
+    component.openBackToLobbyConfirm();
+    component.confirmBackToLobby();
+    expect(component.showBackToLobbyConfirm()).toBe(false);
+    expect(mockSend).toHaveBeenCalledOnce();
+    const msg = mockSend.mock.calls[0][0];
+    expect(msg.type).toBe('BACK_TO_LOBBY');
+    expect(msg.matchId).toBe('match-1');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Socket discipline
 // ---------------------------------------------------------------------------
 

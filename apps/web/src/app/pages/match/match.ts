@@ -70,7 +70,20 @@ import { buildClientMessage, buildPlayerColorMap, isHost } from '../../core/matc
           <button class="btn-secondary" [disabled]="!noMarkedCells()" (click)="reshuffleBoard()">
             Reshuffle Board
           </button>
-          <button class="btn-secondary" (click)="backToLobby()">Back to Lobby</button>
+          <button class="btn-secondary" (click)="openBackToLobbyConfirm()">Back to Lobby</button>
+        </div>
+      }
+
+      @if (showBackToLobbyConfirm()) {
+        <div class="modal-backdrop" (click)="cancelBackToLobby()">
+          <div class="modal" (click)="$event.stopPropagation()">
+            <h2>Return to lobby?</h2>
+            <p>The current match will end and both players will be sent back to the lobby.</p>
+            <div class="modal__actions">
+              <button class="btn-ghost" (click)="cancelBackToLobby()">Cancel</button>
+              <button class="btn-danger" (click)="confirmBackToLobby()">Back to Lobby</button>
+            </div>
+          </div>
         </div>
       }
 
@@ -108,8 +121,9 @@ export class MatchComponent {
 
   readonly isReconnecting = computed(() => this.socket.isReconnecting());
 
-  readonly errorMessage = signal<string | null>(null);
-  readonly showResults   = signal(true);
+  readonly errorMessage            = signal<string | null>(null);
+  readonly showResults             = signal(true);
+  readonly showBackToLobbyConfirm  = signal(false);
 
   readonly displayTimer$: Observable<string> = toObservable(
     computed(() => this.state()?.timer ?? null),
@@ -175,8 +189,17 @@ export class MatchComponent {
     this.socket.send(buildClientMessage('RESHUFFLE_BOARD', matchId, this.clientId, {}));
   }
 
-  backToLobby(): void {
+  openBackToLobbyConfirm(): void {
+    this.showBackToLobbyConfirm.set(true);
+  }
+
+  confirmBackToLobby(): void {
+    this.showBackToLobbyConfirm.set(false);
     const matchId = this.sessionStore.matchId()!;
     this.socket.send(buildClientMessage('BACK_TO_LOBBY', matchId, this.clientId, {}));
+  }
+
+  cancelBackToLobby(): void {
+    this.showBackToLobbyConfirm.set(false);
   }
 }
