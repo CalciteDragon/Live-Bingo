@@ -43,6 +43,11 @@ import { buildClientMessage, buildPlayerColorMap, isHost } from '../../core/matc
     <div class="match-page">
       <div class="match-header">
         <div class="match-timer">{{ displayTimer$ | async }}</div>
+        @if (isCompleted() && !showResults()) {
+          <button class="btn-ghost match-header__view-results" (click)="showResults.set(true)">
+            View Results
+          </button>
+        }
       </div>
 
       <div class="match-layout">
@@ -65,12 +70,25 @@ import { buildClientMessage, buildPlayerColorMap, isHost } from '../../core/matc
           <button class="btn-secondary" [disabled]="!noMarkedCells()" (click)="reshuffleBoard()">
             Reshuffle Board
           </button>
-          <button class="btn-secondary" (click)="backToLobby()">Back to Lobby</button>
+          <button class="btn-secondary" (click)="openBackToLobbyConfirm()">Back to Lobby</button>
         </div>
       }
 
-      @if (isCompleted()) {
-        <app-results-overlay />
+      @if (showBackToLobbyConfirm()) {
+        <div class="modal-backdrop" (click)="cancelBackToLobby()">
+          <div class="modal" (click)="$event.stopPropagation()">
+            <h2>Return to lobby?</h2>
+            <p>The current match will end and both players will be sent back to the lobby.</p>
+            <div class="modal__actions">
+              <button class="btn-ghost" (click)="cancelBackToLobby()">Cancel</button>
+              <button class="btn-danger" (click)="confirmBackToLobby()">Back to Lobby</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (isCompleted() && showResults()) {
+        <app-results-overlay (viewBoard)="showResults.set(false)" />
       }
     </div>
   `,
@@ -103,7 +121,9 @@ export class MatchComponent {
 
   readonly isReconnecting = computed(() => this.socket.isReconnecting());
 
-  readonly errorMessage = signal<string | null>(null);
+  readonly errorMessage            = signal<string | null>(null);
+  readonly showResults             = signal(true);
+  readonly showBackToLobbyConfirm  = signal(false);
 
   readonly displayTimer$: Observable<string> = toObservable(
     computed(() => this.state()?.timer ?? null),
@@ -131,14 +151,20 @@ export class MatchComponent {
     effect(() => {
       const s = this.state();
       if (s?.status === 'Lobby')     void this.router.navigate(['/lobby', s.matchId]);
-      if (s?.status === 'Abandoned') void this.router.navigate(['/'], { queryParams: { abandoned: true } });
+      if (s?.status === 'Abandoned') void this.router.navigate(['/'], { state: { abandoned: true } });
       // Completed: no navigation — results overlay renders in-place
+    });
+
+    effect(() => {
+      if (this.isCompleted()) {
+        this.showResults.set(true);
+      }
     });
 
     effect(() => {
       if (this.socket.sessionReplaced()) {
         this.sessionStore.clearSession();
-        void this.router.navigate(['/'], { queryParams: { replaced: true } });
+        void this.router.navigate(['/'], { state: { replaced: true } });
       }
     });
   }
@@ -163,8 +189,17 @@ export class MatchComponent {
     this.socket.send(buildClientMessage('RESHUFFLE_BOARD', matchId, this.clientId, {}));
   }
 
-  backToLobby(): void {
+  openBackToLobbyConfirm(): void {
+    this.showBackToLobbyConfirm.set(true);
+  }
+
+  confirmBackToLobby(): void {
+    this.showBackToLobbyConfirm.set(false);
     const matchId = this.sessionStore.matchId()!;
     this.socket.send(buildClientMessage('BACK_TO_LOBBY', matchId, this.clientId, {}));
+  }
+
+  cancelBackToLobby(): void {
+    this.showBackToLobbyConfirm.set(false);
   }
 }

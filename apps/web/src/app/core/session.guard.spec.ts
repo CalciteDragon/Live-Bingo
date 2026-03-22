@@ -15,9 +15,9 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
     status: 'Lobby',
     players: [{ playerId: 'p1', clientId: 'c1', slot: 1, alias: 'Host', connected: false }],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: { seed: 1, cells: [] },
-    timer: { mode: 'stopwatch', startedAt: null, countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
     ...overrides,
   };
@@ -31,7 +31,6 @@ function setupGuard(opts: {
   sessionMatchId?: string | null;
   getMatchReturn?: unknown;
   socketStatus?: 'connected' | 'connecting' | 'disconnected';
-  persistedJoinCode?: string;
 }) {
   const matchIdSignal       = signal<string | null>(opts.sessionMatchId ?? null);
   const playerIdSignal      = signal<string | null>(null);
@@ -41,9 +40,7 @@ function setupGuard(opts: {
   const mockGetMatch        = vi.fn();
   const mockConnect         = vi.fn();
   const mockNavigate        = vi.fn();
-  const mockGetPersistedSession = vi.fn().mockReturnValue(
-    opts.persistedJoinCode ? { matchId: opts.sessionMatchId ?? 'match-1', route: '/lobby', joinCode: opts.persistedJoinCode } : null,
-  );
+  const mockGetPersistedSession = vi.fn().mockReturnValue(null);
 
   if (opts.getMatchReturn !== undefined) {
     mockGetMatch.mockReturnValue(opts.getMatchReturn);
@@ -116,7 +113,7 @@ describe('sessionGuard — reconnect on re-entry', () => {
 describe('sessionGuard — hydration (empty store)', () => {
   it('calls getMatch with the route matchId', () => {
     const state = makeState();
-    const { mockGetMatch } = setupGuard({ getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }) });
+    const { mockGetMatch } = setupGuard({ getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state, joinCode: null }) });
     TestBed.runInInjectionContext(() =>
       (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(),
     );
@@ -126,7 +123,7 @@ describe('sessionGuard — hydration (empty store)', () => {
   it('writes matchId, playerId, matchState to store on success', () => {
     const state = makeState();
     const { matchIdSignal, playerIdSignal, matchStateSignal } = setupGuard({
-      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }),
+      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state, joinCode: null }),
     });
     let allowed: boolean | undefined;
     TestBed.runInInjectionContext(() =>
@@ -141,7 +138,7 @@ describe('sessionGuard — hydration (empty store)', () => {
   it('connects the socket on success', () => {
     const state = makeState();
     const { mockConnect } = setupGuard({
-      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }),
+      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state, joinCode: null }),
     });
     TestBed.runInInjectionContext(() =>
       (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(),
@@ -149,22 +146,21 @@ describe('sessionGuard — hydration (empty store)', () => {
     expect(mockConnect).toHaveBeenCalledWith('match-1');
   });
 
-  it('restores joinCode from persisted session when present', () => {
+  it('sets joinCode from API response when present', () => {
     const state = makeState();
     const { joinCodeSignal } = setupGuard({
-      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }),
-      persistedJoinCode: 'SAVED1',
+      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state, joinCode: 'API123' }),
     });
     TestBed.runInInjectionContext(() =>
       (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(),
     );
-    expect(joinCodeSignal()).toBe('SAVED1');
+    expect(joinCodeSignal()).toBe('API123');
   });
 
-  it('does not set joinCode when persisted session has none', () => {
+  it('sets joinCode to null when API response returns null', () => {
     const state = makeState();
     const { joinCodeSignal } = setupGuard({
-      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }),
+      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state, joinCode: null }),
     });
     TestBed.runInInjectionContext(() =>
       (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(),
@@ -178,7 +174,7 @@ describe('sessionGuard — hydration (mismatched store)', () => {
     const state = makeState();
     const { mockGetMatch } = setupGuard({
       sessionMatchId: 'other-match',
-      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state }),
+      getMatchReturn: of({ matchId: 'match-1', playerId: 'p1', state, joinCode: null }),
     });
     TestBed.runInInjectionContext(() =>
       (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(),
@@ -188,7 +184,7 @@ describe('sessionGuard — hydration (mismatched store)', () => {
 });
 
 describe('sessionGuard — error cases', () => {
-  it('redirects to /?error=forbidden and emits false on FORBIDDEN', () => {
+  it('redirects to / with state.error=forbidden and emits false on FORBIDDEN', () => {
     const { mockNavigate } = setupGuard({
       getMatchReturn: throwError(() => ({ code: 'FORBIDDEN', message: '' })),
     });
@@ -197,7 +193,7 @@ describe('sessionGuard — error cases', () => {
       (sessionGuard(makeRoute('match-1'), null as unknown as RouterStateSnapshot) as Observable<boolean>).subscribe(v => (allowed = v)),
     );
     expect(allowed).toBe(false);
-    expect(mockNavigate).toHaveBeenCalledWith(['/'], { queryParams: { error: 'forbidden' } });
+    expect(mockNavigate).toHaveBeenCalledWith(['/'], { state: { error: 'forbidden' } });
   });
 
   it('redirects to / without query params and emits false on MATCH_NOT_FOUND', () => {

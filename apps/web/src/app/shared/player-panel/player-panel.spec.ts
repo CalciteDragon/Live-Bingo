@@ -15,9 +15,9 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
       { playerId: 'p2', clientId: 'c2', slot: 2, alias: 'Guest', connected: true },
     ],
     readyStates: { p1: true, p2: true },
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
-    card: { seed: 42, cells: Array.from({ length: 25 }, (_, i) => ({ index: i, goal: `G${i}`, markedBy: null })) },
-    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
+    card: { seed: 42, cells: Array.from({ length: 25 }, (_, i) => ({ index: i, goal: `G${i}`, difficulty: 0.5, markedBy: null })) },
+    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: null, countdownDurationMs: null },
     result: null,
     ...overrides,
   };
@@ -55,10 +55,10 @@ describe('PlayerPanelComponent', () => {
       card: {
         seed: 42,
         cells: [
-          { index: 0, goal: 'A', markedBy: 'p1' },
-          { index: 1, goal: 'B', markedBy: 'p1' },
-          { index: 2, goal: 'C', markedBy: 'p2' },
-          ...Array.from({ length: 22 }, (_, i) => ({ index: i + 3, goal: `G${i + 3}`, markedBy: null })),
+          { index: 0, goal: 'A', difficulty: 0.5, markedBy: 'p1' },
+          { index: 1, goal: 'B', difficulty: 0.5, markedBy: 'p1' },
+          { index: 2, goal: 'C', difficulty: 0.5, markedBy: 'p2' },
+          ...Array.from({ length: 22 }, (_, i) => ({ index: i + 3, goal: `G${i + 3}`, difficulty: 0.5, markedBy: null })),
         ],
       },
     });
@@ -75,9 +75,9 @@ describe('PlayerPanelComponent', () => {
       card: {
         seed: 42,
         cells: [
-          { index: 0, goal: 'A', markedBy: 'p1' },
-          { index: 1, goal: 'B', markedBy: 'p2' },
-          ...Array.from({ length: 23 }, (_, i) => ({ index: i + 2, goal: `G${i + 2}`, markedBy: null })),
+          { index: 0, goal: 'A', difficulty: 0.5, markedBy: 'p1' },
+          { index: 1, goal: 'B', difficulty: 0.5, markedBy: 'p2' },
+          ...Array.from({ length: 23 }, (_, i) => ({ index: i + 2, goal: `G${i + 2}`, difficulty: 0.5, markedBy: null })),
         ],
       },
     });

@@ -17,6 +17,16 @@ export class TimerService {
 
     const startMs = Date.parse(timer.startedAt);
 
+    if (timer.stoppedAt) {
+      const elapsed = Date.parse(timer.stoppedAt) - startMs;
+      if (timer.mode === 'stopwatch') {
+        return of(formatMs(Math.max(0, elapsed)));
+      } else {
+        const remaining = (timer.countdownDurationMs ?? 0) - elapsed;
+        return of(formatMs(Math.max(0, remaining)));
+      }
+    }
+
     return interval(1000).pipe(
       startWith(0),
       map(() => {

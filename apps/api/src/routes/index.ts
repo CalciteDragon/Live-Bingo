@@ -10,7 +10,12 @@ import type {
   GetMatchResponse,
   ResolveJoinCodeResponse,
 } from '@bingo/shared';
-import { CreateMatchBodySchema, JoinMatchBodySchema } from '@bingo/shared';
+import {
+  CreateMatchBodySchema,
+  JoinMatchBodySchema,
+  DEFAULT_DIFFICULTY,
+  DEFAULT_DIFFICULTY_SPREAD,
+} from '@bingo/shared';
 import { db } from '../db/index.js';
 import { getMatch, setMatch } from '../match-registry.js';
 import { clientIdMiddleware } from '../middleware/client-id.js';
@@ -36,16 +41,21 @@ matchRouter.post('/', async (req, res) => {
   const joinCode = randomBytes(3).toString('hex').toUpperCase();
   const joinCodeExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
 
-  const card = generateBoard(seed);
+  const card = generateBoard(seed, DEFAULT_DIFFICULTY, DEFAULT_DIFFICULTY_SPREAD);
   const state: MatchState = {
     matchId,
     matchMode: 'ffa',
     status: 'Lobby',
     players: [{ playerId, clientId, slot: 1, alias, connected: false }],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: {
+      timerMode: 'stopwatch',
+      countdownDurationMs: null,
+      difficulty: DEFAULT_DIFFICULTY,
+      difficultySpread: DEFAULT_DIFFICULTY_SPREAD,
+    },
     card,
-    timer: { mode: 'stopwatch', startedAt: null, countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
   };
 
@@ -189,24 +199,26 @@ matchRouter.get('/by-code/:code', async (req, res) => {
 // GET /matches/:id — initial state hydration
 matchRouter.get('/:id', async (req, res) => {
   const clientId = res.locals['clientId'] as string;
-  const matchId = req.params['id'] as string;
+  const matchId  = req.params['id'] as string;
+
+  // Always fetch from DB so we can return join_code alongside state.
+  // Registry state is preferred (fresher) but join_code is DB-only.
+  const { rows } = await db.query<{
+    state_json: MatchState;
+    join_code: string | null;
+    join_code_expires_at: Date | null;
+  }>(
+    'SELECT state_json, join_code, join_code_expires_at FROM matches WHERE match_id = $1',
+    [matchId],
+  );
+
+  if (rows.length === 0) {
+    res.status(404).json({ code: 'MATCH_NOT_FOUND', message: 'Match not found' });
+    return;
+  }
 
   const entry = getMatch(matchId);
-  let state: MatchState;
-
-  if (entry) {
-    state = entry.state;
-  } else {
-    const { rows } = await db.query<{ state_json: MatchState }>(
-      'SELECT state_json FROM matches WHERE match_id = $1',
-      [matchId],
-    );
-    if (rows.length === 0) {
-      res.status(404).json({ code: 'MATCH_NOT_FOUND', message: 'Match not found' });
-      return;
-    }
-    state = rows[0].state_json;
-  }
+  const state  = entry?.state ?? rows[0].state_json;
 
   const player = state.players.find((p) => p.clientId === clientId);
   if (!player) {
@@ -214,6 +226,12 @@ matchRouter.get('/:id', async (req, res) => {
     return;
   }
 
-  const response: GetMatchResponse = { matchId, playerId: player.playerId, state };
+  const { join_code, join_code_expires_at } = rows[0];
+  const joinCode =
+    join_code && join_code_expires_at && join_code_expires_at > new Date()
+      ? join_code
+      : null;
+
+  const response: GetMatchResponse = { matchId, playerId: player.playerId, state, joinCode };
   res.status(200).json(response);
 });

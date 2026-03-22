@@ -14,9 +14,9 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
     status: 'Lobby',
     players: [{ playerId: 'p1', clientId: 'c1', slot: 1, alias: 'Host', connected: false }],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: { seed: 1, cells: [] },
-    timer: { mode: 'stopwatch', startedAt: null, countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
     ...overrides,
   };

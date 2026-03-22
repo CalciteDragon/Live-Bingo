@@ -33,12 +33,12 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
     status: 'Lobby',
     players: [{ playerId: HOST_PLAYER_ID, clientId: HOST_CLIENT_ID, slot: 1, alias: 'Host', connected: false }],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: {
       seed: 12345,
-      cells: Array.from({ length: 25 }, (_, i) => ({ index: i, goal: `Goal ${i}`, markedBy: null })),
+      cells: Array.from({ length: 25 }, (_, i) => ({ index: i, goal: `Goal ${i}`, difficulty: 0.5, markedBy: null })),
     },
-    timer: { mode: 'stopwatch', startedAt: null, countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
     ...overrides,
   };
@@ -77,6 +77,10 @@ describe('POST /matches', () => {
     expect(res.body.state.players[0].slot).toBe(1);
     expect(res.body.state.lobbySettings.timerMode).toBe('stopwatch');
     expect(res.body.state.lobbySettings.countdownDurationMs).toBeNull();
+    expect(res.body.state.lobbySettings.difficulty).toBe(0.5);
+    expect(res.body.state.lobbySettings.difficultySpread).toBe(0.175);
+    expect(res.body.state.card.cells).toHaveLength(25);
+    expect(typeof res.body.state.card.cells[0].difficulty).toBe('number');
   });
 
   it('returns 400 when X-Client-Id header is missing', async () => {
@@ -362,9 +366,13 @@ describe('GET /matches/:id', () => {
     vi.clearAllMocks();
   });
 
-  it('returns 200 with matchId, playerId, and state (from registry)', async () => {
+  it('returns 200 with matchId, playerId, state, and joinCode (from registry)', async () => {
     const state = makeState();
+    const futureExpiry = new Date(Date.now() + 30 * 60 * 1000);
     (getMatch as any).mockReturnValue({ state, sockets: new Map() });
+    (db as any).query.mockResolvedValueOnce({
+      rows: [{ state_json: state, join_code: 'ABC123', join_code_expires_at: futureExpiry }],
+    });
 
     const res = await request(app)
       .get(`/matches/${MATCH_ID}`)
@@ -374,12 +382,16 @@ describe('GET /matches/:id', () => {
     expect(res.body.matchId).toBe(MATCH_ID);
     expect(res.body.playerId).toBe(HOST_PLAYER_ID);
     expect(res.body.state).toBeDefined();
+    expect(res.body.joinCode).toBe('ABC123');
   });
 
   it('returns 200 loading state from DB when not in registry', async () => {
     const state = makeState();
+    const futureExpiry = new Date(Date.now() + 30 * 60 * 1000);
     (getMatch as any).mockReturnValue(undefined);
-    (db as any).query.mockResolvedValueOnce({ rows: [{ state_json: state }] });
+    (db as any).query.mockResolvedValueOnce({
+      rows: [{ state_json: state, join_code: 'XYZ789', join_code_expires_at: futureExpiry }],
+    });
 
     const res = await request(app)
       .get(`/matches/${MATCH_ID}`)
@@ -387,6 +399,7 @@ describe('GET /matches/:id', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.playerId).toBe(HOST_PLAYER_ID);
+    expect(res.body.joinCode).toBe('XYZ789');
   });
 
   it('returns 404 when match not found in registry or DB', async () => {
@@ -403,7 +416,11 @@ describe('GET /matches/:id', () => {
 
   it('returns 403 when clientId is not a participant', async () => {
     const state = makeState();
+    const futureExpiry = new Date(Date.now() + 30 * 60 * 1000);
     (getMatch as any).mockReturnValue({ state, sockets: new Map() });
+    (db as any).query.mockResolvedValueOnce({
+      rows: [{ state_json: state, join_code: 'ABC123', join_code_expires_at: futureExpiry }],
+    });
 
     const res = await request(app)
       .get(`/matches/${MATCH_ID}`)
@@ -411,6 +428,37 @@ describe('GET /matches/:id', () => {
 
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('FORBIDDEN');
+  });
+
+  it('returns joinCode: null when join code is expired', async () => {
+    const state = makeState();
+    const pastExpiry = new Date(Date.now() - 1000);
+    (getMatch as any).mockReturnValue(undefined);
+    (db as any).query.mockResolvedValueOnce({
+      rows: [{ state_json: state, join_code: 'OLD123', join_code_expires_at: pastExpiry }],
+    });
+
+    const res = await request(app)
+      .get(`/matches/${MATCH_ID}`)
+      .set('X-Client-Id', HOST_CLIENT_ID);
+
+    expect(res.status).toBe(200);
+    expect(res.body.joinCode).toBeNull();
+  });
+
+  it('returns joinCode: null when join_code is null in DB', async () => {
+    const state = makeState();
+    (getMatch as any).mockReturnValue(undefined);
+    (db as any).query.mockResolvedValueOnce({
+      rows: [{ state_json: state, join_code: null, join_code_expires_at: null }],
+    });
+
+    const res = await request(app)
+      .get(`/matches/${MATCH_ID}`)
+      .set('X-Client-Id', HOST_CLIENT_ID);
+
+    expect(res.status).toBe(200);
+    expect(res.body.joinCode).toBeNull();
   });
 
   it('returns 400 when X-Client-Id header is missing', async () => {

@@ -43,8 +43,14 @@ async function expireCountdown(matchId: string): Promise<void> {
 
   entry.countdownTimer = undefined;
 
+  const nowIso = new Date().toISOString();
   const result = resolveTimerWinner(entry.state);
-  const newState = { ...entry.state, status: 'Completed' as const, result };
+  const newState = {
+    ...entry.state,
+    status: 'Completed' as const,
+    result,
+    timer: { ...entry.state.timer, stoppedAt: nowIso },
+  };
 
   await db.query(
     'UPDATE matches SET state_json = $1, status = $2, ended_at = NOW() WHERE match_id = $3',

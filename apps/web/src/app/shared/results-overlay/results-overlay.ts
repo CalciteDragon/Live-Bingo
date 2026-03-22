@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, output } from '@angular/core';
 import { SessionStoreService } from '../../core/session-store.service';
 import { MatchSocketService } from '../../core/match-socket.service';
 import { ClientIdService } from '../../core/client-id.service';
@@ -28,10 +28,14 @@ import { buildClientMessage, getPlayerRankings, isHost, ordinalLabel } from '../
 
         @if (amHost()) {
           <div class="results-overlay__actions">
+            <button class="btn-ghost" (click)="viewBoard.emit()">View Board</button>
             <button class="btn-primary" (click)="rematch()">Rematch</button>
             <button class="btn-secondary" (click)="backToLobby()">Back to Lobby</button>
           </div>
         } @else {
+          <div class="results-overlay__actions">
+            <button class="btn-ghost" (click)="viewBoard.emit()">View Board</button>
+          </div>
           <p class="text-muted results-overlay__waiting">Waiting for host…</p>
         }
 
@@ -40,6 +44,8 @@ import { buildClientMessage, getPlayerRankings, isHost, ordinalLabel } from '../
   `,
 })
 export class ResultsOverlayComponent {
+  readonly viewBoard = output<void>();
+
   private readonly sessionStore = inject(SessionStoreService);
   private readonly socket       = inject(MatchSocketService);
   private readonly clientId     = inject(ClientIdService).clientId;

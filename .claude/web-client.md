@@ -62,11 +62,12 @@ apps/web/src/
 
 ### MatchSocketService
 - WebSocket management with exponential backoff reconnection (max 30s)
-- Signals: `connectionStatus` ('connected'|'connecting'|'disconnected'), `isReconnecting`, `sessionReplaced`
+- Signals: `connectionStatus` ('connected'|'connecting'|'disconnected'), `isReconnecting`, `sessionReplaced`, `wasKicked`
 - Observable: `messages$` (all ServerMessage)
 - Methods: `connect(matchId)`, `disconnect()`, `send(ClientMessage)`
 - On connect: sends SYNC_STATE immediately
 - On SESSION_REPLACED error: sets `sessionReplaced` signal, stops reconnecting
+- On KICKED error: sets `wasKicked` signal, stops reconnecting
 - Reconnect logic: exponential backoff `1s * 2^attempt`, capped at 30s
 
 ### SessionStoreService
@@ -80,11 +81,13 @@ apps/web/src/
 - Ensures session store is populated before match routes
 - If `matchId` already matches: reconnects socket if disconnected
 - Otherwise: calls `GET /matches/:id` to hydrate, then connects socket
+  - Sets `joinCode` signal directly from API response (authoritative; no persisted-session fallback)
 - On FORBIDDEN: redirects to home with `?error=forbidden`
 
 ### TimerService
 - `getDisplayTimer$(timer: TimerState) → Observable<string>`
 - Emits `MM:SS` every second (stopwatch: counts up, countdown: counts down to 0)
+- When `timer.stoppedAt` is set: returns `of(frozenValue)` immediately — no live interval created. Freeze value computed from `stoppedAt - startedAt` (server-authoritative, avoids clock-drift between clients)
 
 ### Helpers (match.helpers.ts)
 
@@ -109,7 +112,7 @@ apps/web/src/
 - Create: calls `matchApi.createMatch()` → sets session → navigates to lobby
 - Join: validates 6-char code → navigates to `/join/:code`
 - Rejoin banner: shows if persisted session exists (5-min TTL)
-- Error banners: abandoned, forbidden, session-replaced
+- Error banners: abandoned, forbidden, kicked, session-replaced
 
 ### JoinComponent
 - Reads `:code` from route params
@@ -120,17 +123,58 @@ apps/web/src/
 ### LobbyComponent
 - Shows: seed, join code, copy invite link, player list with ready/connected badges
 - Toggle ready button
-- Host controls: timer mode dropdown, countdown duration input (debounced 500ms), start match button
-- Socket message handling: STATE_SYNC/STATE_UPDATE → update matchState; PRESENCE_UPDATE → merge players; ERROR → show banner
+- Host controls: timer mode dropdown, countdown duration input (debounced 500ms), difficulty slider (debounced 300ms), difficulty spread slider (debounced 300ms), start match button
+- Host action: kick player button (non-self, host-only)
+- Socket message handling: STATE_SYNC/STATE_UPDATE → update matchState; PRESENCE_UPDATE → merge players; ERROR (non-KICKED) → show banner; ERROR KICKED → suppress banner (effect handles redirect)
 - Countdown duration: uses optimistic local state with pending eventId tracking (avoids flicker during debounced sends)
-- Auto-navigates: InProgress → /match, Completed → /match, Abandoned → /, session replaced → /
+- Auto-navigates: InProgress → /match, Completed → /match, Abandoned → /, session replaced → /, kicked → /?kicked=true
+
+**Signals:**
+- `errorMessage` — `string | null`; displays ERROR messages from server
+- `linkCopied` — boolean; transient "Copied!" feedback (2s timeout)
+- `countdownDurationMs` — number; optimistic local state for countdown input
+- `isEditingCountdown` — boolean; flags when input has focus (prevents server broadcasts from overwriting)
+- `playerToKick` — `{ playerId, alias } | null`; non-null while a kick confirmation modal is open
+- `localDifficulty` — number; optimistic local state for difficulty slider (synced from STATE_SYNC/STATE_UPDATE)
+- `localDifficultySpread` — number; optimistic local state for spread slider
+
+**Computed signals:**
+- `players` — all players from matchState
+- `readyStates` — ready state map from matchState
+- `playersWithLocalStatus` — players with WS connection status overlaid (live feedback)
+- `myReady` — current player's ready state
+- `amHost` — true if current player is host (slot 1)
+- `canStart` — true if host and all players ready
+- `timerMode` — timer mode from lobby settings (stopwatch|countdown)
+- `difficulty` — difficulty from lobby settings (read-only display for guests)
+- `difficultySpread` — spread from lobby settings (read-only display for guests)
+- `seed` — bingo card seed
+- `joinCode` — current player's join code
+- `isReconnecting` — true if WebSocket is reconnecting
+
+**Methods:**
+- `toggleReady()` — sends SET_READY intent (opposite of current state)
+- `onTimerModeChange(event)` — sends SET_LOBBY_SETTINGS with `{ timerMode, countdownDurationMs: null | current }`
+- `onCountdownInput(event)` — updates local countdown state, debounces 500ms before sending
+- `onCountdownFocus()` / `onCountdownBlur()` — flags editing state (prevents clobbering)
+- `onDifficultyInput(event)` — updates `localDifficulty`, debounces 300ms before sending `SET_LOBBY_SETTINGS { difficulty }`
+- `onDifficultySpreadInput(event)` — updates `localDifficultySpread`, debounces 300ms before sending `SET_LOBBY_SETTINGS { difficultySpread }`
+- `startMatch()` — sends START_MATCH intent (host-only)
+- `openKickConfirm(player)` — sets `playerToKick` to open the confirmation modal (host-only, non-self)
+- `confirmKick()` — sends KICK_PLAYER intent and clears `playerToKick`
+- `cancelKick()` — clears `playerToKick` without sending
+- `copyInviteLink()` — copies full join URL to clipboard; shows transient feedback
 
 ### MatchComponent
 - Shows: timer, player panel, 5x5 bingo board, host controls (reshuffle, back to lobby), results overlay
 - Cell click: if own cell → UNMARK_CELL; if empty → MARK_CELL; if opponent's → no-op
 - Reshuffle: only enabled when no cells marked
-- Timer: reactive Observable via toObservable + switchMap
+- Back to Lobby: host-only; clicking opens a confirmation modal before sending `BACK_TO_LOBBY`
+- Timer: reactive Observable via toObservable + switchMap; frozen when `timer.stoppedAt` is set
 - Auto-navigates: Lobby → /lobby, Abandoned → /
+- `showResults = signal(true)` — controls overlay visibility; reset to `true` whenever `isCompleted()` transitions to `true` (rematch flow). When `false`, a "View Results" button appears in the match header to re-open the overlay.
+- `showBackToLobbyConfirm = signal(false)` — true while the "Return to lobby?" confirmation modal is open
+- `(viewBoard)` output from `ResultsOverlayComponent` sets `showResults` to `false`
 
 ## Shared Components
 
@@ -138,6 +182,8 @@ apps/web/src/
 - Inputs: `cell` (Cell), `playerColorMap` (Record<string, string>), `isActive` (boolean)
 - Output: `cellClick` (emits cell index)
 - Uses CSS custom property `--cell-color` for dynamic player coloring
+- `difficultyColor` — computed `hsl(hue, 70%, 50%)` where `hue = (1 - difficulty) * 120` (green→red)
+- Rendered as CSS `outline: 3px solid var(--difficulty-color, transparent)` ring outside the cell border
 
 ### PlayerPanelComponent
 - Reads state from SessionStoreService
@@ -148,8 +194,9 @@ apps/web/src/
 - Headline: "You won!" / "You came 2nd!" / "It's a draw!"
 - Win reason badge (Line/Majority/Time expired)
 - Score summary (all players sorted by cell count)
-- Host actions: Rematch, Back to Lobby
-- Non-host: "Waiting for host..."
+- Output: `viewBoard` — emitted when "View Board" button is clicked (both host and non-host)
+- Host actions: View Board, Rematch, Back to Lobby
+- Non-host: View Board button + "Waiting for host..."
 
 ## Root Component (app.ts)
 

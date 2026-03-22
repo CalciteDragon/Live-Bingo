@@ -14,15 +14,16 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
     status: 'Lobby',
     players: [{ playerId: 'p1', clientId: 'c1', slot: 1, alias: 'Host', connected: false }],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: { seed: 1, cells: [] },
-    timer: { mode: 'stopwatch', startedAt: null, countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
     ...overrides,
   };
 }
 
 function setup(
+  historyState: Record<string, unknown> = {},
   queryParams: Record<string, string> = {},
   initialAlias: string | null = 'TestAlias',
   persistedSession: { matchId: string; route: '/lobby' | '/match'; joinCode?: string } | null = null,
@@ -68,6 +69,11 @@ function setup(
     ],
   });
 
+  // Set history state before component creation so the constructor can read it.
+  if (Object.keys(historyState).length > 0) {
+    history.pushState(historyState, '');
+  }
+
   const fixture = TestBed.createComponent(HomeComponent);
   const comp    = fixture.componentInstance;
 
@@ -80,18 +86,19 @@ function setup(
 }
 
 afterEach(() => {
+  history.replaceState({}, ''); // clean up any state pushed by tests
   TestBed.resetTestingModule();
   vi.clearAllMocks();
 });
 
 describe('HomeComponent — alias initialisation', () => {
   it('does not generate alias when one is already stored', () => {
-    const { mockSaveAlias } = setup({}, 'StoredAlias');
+    const { mockSaveAlias } = setup({}, {}, 'StoredAlias');
     expect(mockSaveAlias).not.toHaveBeenCalled();
   });
 
   it('generates and saves alias when store has none', () => {
-    const { mockSaveAlias } = setup({}, null);
+    const { mockSaveAlias } = setup({}, {}, null);
     expect(mockSaveAlias).toHaveBeenCalledOnce();
     expect(typeof mockSaveAlias.mock.calls[0]![0]).toBe('string');
     expect((mockSaveAlias.mock.calls[0]![0] as string).length).toBeGreaterThan(0);
@@ -110,21 +117,50 @@ describe('HomeComponent — alias initialisation', () => {
   });
 });
 
-describe('HomeComponent — query param handling', () => {
-  it('shows abandoned banner and clears session for ?abandoned=true', () => {
-    const { comp, mockClear } = setup({ abandoned: 'true' });
+describe('HomeComponent — navigation state banners', () => {
+  it('shows abandoned banner and clears session for state.abandoned', () => {
+    const { comp, mockClear } = setup({ abandoned: true });
     expect(comp.abandonedBanner()).toBe(true);
     expect(mockClear).toHaveBeenCalled();
   });
 
-  it('shows forbidden banner and clears session for ?error=forbidden', () => {
+  it('shows forbidden banner and clears session for state.error=forbidden', () => {
     const { comp, mockClear } = setup({ error: 'forbidden' });
     expect(comp.forbiddenBanner()).toBe(true);
     expect(mockClear).toHaveBeenCalled();
   });
 
+  it('shows kicked banner and clears session for state.kicked', () => {
+    const { comp, mockClear } = setup({ kicked: true });
+    expect(comp.kickedBanner()).toBe(true);
+    expect(mockClear).toHaveBeenCalled();
+  });
+
+  it('shows replaced banner for state.replaced (no session clear)', () => {
+    const { comp, mockClear } = setup({ replaced: true });
+    expect(comp.replacedBanner()).toBe(true);
+    expect(mockClear).not.toHaveBeenCalled();
+  });
+
+  it('strips banner flags from history state after reading to prevent re-show on refresh', () => {
+    setup({ abandoned: true });
+    // After the constructor ran, our custom flags should be gone from history.state
+    const state = (window.history.state ?? {}) as Record<string, unknown>;
+    expect(state['abandoned']).toBeUndefined();
+  });
+
+  it('does not show any banner when history state has no recognised flags', () => {
+    const { comp } = setup();
+    expect(comp.abandonedBanner()).toBe(false);
+    expect(comp.forbiddenBanner()).toBe(false);
+    expect(comp.kickedBanner()).toBe(false);
+    expect(comp.replacedBanner()).toBe(false);
+  });
+});
+
+describe('HomeComponent — joinCode query param', () => {
   it('pre-fills join code and switches to join mode for ?joinCode param', () => {
-    const { comp } = setup({ joinCode: 'abc123' });
+    const { comp } = setup({}, { joinCode: 'abc123' });
     expect(comp.joinCodeInput()).toBe('ABC123');
     expect(comp.mode()).toBe('join');
   });
@@ -132,40 +168,40 @@ describe('HomeComponent — query param handling', () => {
 
 describe('HomeComponent — rejoin banner', () => {
   it('shows rejoin banner when a valid persisted lobby session exists', () => {
-    const { comp } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/lobby' });
+    const { comp } = setup({}, {}, 'TestAlias', { matchId: 'match-old', route: '/lobby' });
     expect(comp.rejoinSession()).toMatchObject({ matchId: 'match-old', route: '/lobby' });
   });
 
   it('shows rejoin banner when a valid persisted match session exists', () => {
-    const { comp } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/match' });
+    const { comp } = setup({}, {}, 'TestAlias', { matchId: 'match-old', route: '/match' });
     expect(comp.rejoinSession()).toMatchObject({ matchId: 'match-old', route: '/match' });
   });
 
   it('does not show rejoin banner when no persisted session', () => {
-    const { comp } = setup({}, 'TestAlias', null);
+    const { comp } = setup({}, {}, 'TestAlias', null);
     expect(comp.rejoinSession()).toBeNull();
   });
 
   it('rejoin() navigates to /join/:code when joinCode is available', () => {
-    const { comp, mockNavigate } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/lobby', joinCode: 'XYZ123' });
+    const { comp, mockNavigate } = setup({}, {}, 'TestAlias', { matchId: 'match-old', route: '/lobby', joinCode: 'XYZ123' });
     comp.rejoin();
     expect(mockNavigate).toHaveBeenCalledWith(['/join', 'XYZ123']);
   });
 
   it('rejoin() falls back to direct route navigation when joinCode is absent', () => {
-    const { comp, mockNavigate } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/lobby' });
+    const { comp, mockNavigate } = setup({}, {}, 'TestAlias', { matchId: 'match-old', route: '/lobby' });
     comp.rejoin();
     expect(mockNavigate).toHaveBeenCalledWith(['/lobby', 'match-old']);
   });
 
   it('rejoin() falls back to /match route when joinCode absent and route is /match', () => {
-    const { comp, mockNavigate } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/match' });
+    const { comp, mockNavigate } = setup({}, {}, 'TestAlias', { matchId: 'match-old', route: '/match' });
     comp.rejoin();
     expect(mockNavigate).toHaveBeenCalledWith(['/match', 'match-old']);
   });
 
   it('dismissRejoin() clears session and hides banner', () => {
-    const { comp, mockClearSession } = setup({}, 'TestAlias', { matchId: 'match-old', route: '/lobby' });
+    const { comp, mockClearSession } = setup({}, {}, 'TestAlias', { matchId: 'match-old', route: '/lobby' });
     comp.dismissRejoin();
     expect(mockClearSession).toHaveBeenCalledOnce();
     expect(comp.rejoinSession()).toBeNull();
@@ -174,14 +210,14 @@ describe('HomeComponent — rejoin banner', () => {
 
 describe('HomeComponent — alias validation', () => {
   it('shows aliasError and does not navigate when alias is empty on create', () => {
-    const { comp, mockCreateMatch } = setup({}, '');
+    const { comp, mockCreateMatch } = setup({}, {}, '');
     comp.createMatch();
     expect(comp.aliasError()).toBeTruthy();
     expect(mockCreateMatch).not.toHaveBeenCalled();
   });
 
   it('shows aliasError and does not navigate when alias is empty on join', () => {
-    const { comp, mockNavigate } = setup({}, '');
+    const { comp, mockNavigate } = setup({}, {}, '');
     comp.joinCodeInput.set('ABCDEF');
     comp.joinByCode();
     expect(comp.aliasError()).toBeTruthy();
@@ -189,7 +225,7 @@ describe('HomeComponent — alias validation', () => {
   });
 
   it('clears aliasError when a valid alias is entered via onAliasChange', () => {
-    const { comp } = setup({}, '');
+    const { comp } = setup({}, {}, '');
     comp.createMatch(); // triggers aliasError
     expect(comp.aliasError()).toBeTruthy();
     comp.onAliasChange({ target: { value: 'ValidName' } } as unknown as Event);

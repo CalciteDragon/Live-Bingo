@@ -40,8 +40,7 @@ export const sessionGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
       sessionStore.matchId.set(res.matchId);
       sessionStore.playerId.set(res.playerId);
       sessionStore.matchState.set(res.state);
-      const persisted = sessionStore.getPersistedSession();
-      if (persisted?.joinCode) sessionStore.joinCode.set(persisted.joinCode);
+      sessionStore.joinCode.set(res.joinCode);
       socket.connect(matchId);
       return true as const;
     }),
@@ -52,7 +51,7 @@ export const sessionGuard: CanActivateFn = (route: ActivatedRouteSnapshot) => {
         'code' in err &&
         (err as { code: string }).code === 'FORBIDDEN';
       if (isForbidden) {
-        void router.navigate(['/'], { queryParams: { error: 'forbidden' } });
+        void router.navigate(['/'], { state: { error: 'forbidden' } });
       } else {
         void router.navigate(['/']);
       }

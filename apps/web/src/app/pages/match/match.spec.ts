@@ -11,7 +11,7 @@ import { TimerService } from '../../core/timer.service';
 import type { MatchState, ServerMessage, Cell } from '@bingo/shared';
 
 function makeCell(index: number, markedBy: string | null = null): Cell {
-  return { index, goal: `Goal ${index}`, markedBy };
+  return { index, goal: `Goal ${index}`, difficulty: 0.5, markedBy };
 }
 
 function makeState(overrides: Partial<MatchState> = {}): MatchState {
@@ -24,9 +24,9 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
       { playerId: 'p2', clientId: 'c2', slot: 2, alias: 'Guest', connected: true },
     ],
     readyStates: { p1: true, p2: true },
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: { seed: 42, cells: Array.from({ length: 25 }, (_, i) => makeCell(i)) },
-    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: null, countdownDurationMs: null },
     result: null,
     ...overrides,
   };
@@ -122,7 +122,7 @@ describe('MatchComponent — status-route effect', () => {
     matchStateSignal.set(makeState({ matchId: 'match-1', status: 'Abandoned' }));
     TestBed.flushEffects();
 
-    expect(mockNavigate).toHaveBeenCalledWith(['/'], { queryParams: { abandoned: true } });
+    expect(mockNavigate).toHaveBeenCalledWith(['/'], { state: { abandoned: true } });
   });
 
   it('does not navigate when status is InProgress', () => {
@@ -277,6 +277,69 @@ describe('MatchComponent — player panel', () => {
     const { fixture } = setup(makeState({ status: 'InProgress' }));
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('app-player-panel')).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// showResults signal
+// ---------------------------------------------------------------------------
+
+describe('MatchComponent — showResults', () => {
+  it('defaults to true', () => {
+    const { component } = setup(makeState({ status: 'Completed', result: { winnerId: 'p1', reason: 'line' } }));
+    expect(component.showResults()).toBe(true);
+  });
+
+  it('can be set to false', () => {
+    const { component } = setup(makeState({ status: 'Completed', result: { winnerId: 'p1', reason: 'line' } }));
+    component.showResults.set(false);
+    expect(component.showResults()).toBe(false);
+  });
+
+  it('resets to true when isCompleted transitions to true (rematch flow)', () => {
+    const { component, matchStateSignal } = setup(makeState({ status: 'InProgress' }));
+    component.showResults.set(false);
+
+    matchStateSignal.set(makeState({ status: 'Completed', result: { winnerId: 'p1', reason: 'line' } }));
+    TestBed.flushEffects();
+
+    expect(component.showResults()).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Back to Lobby confirmation
+// ---------------------------------------------------------------------------
+
+describe('MatchComponent — back to lobby confirmation', () => {
+  it('showBackToLobbyConfirm defaults to false', () => {
+    const { component } = setup();
+    expect(component.showBackToLobbyConfirm()).toBe(false);
+  });
+
+  it('openBackToLobbyConfirm sets showBackToLobbyConfirm to true', () => {
+    const { component } = setup();
+    component.openBackToLobbyConfirm();
+    expect(component.showBackToLobbyConfirm()).toBe(true);
+  });
+
+  it('cancelBackToLobby sets showBackToLobbyConfirm to false without sending', () => {
+    const { component, mockSend } = setup();
+    component.openBackToLobbyConfirm();
+    component.cancelBackToLobby();
+    expect(component.showBackToLobbyConfirm()).toBe(false);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('confirmBackToLobby sends BACK_TO_LOBBY and closes the modal', () => {
+    const { component, mockSend } = setup();
+    component.openBackToLobbyConfirm();
+    component.confirmBackToLobby();
+    expect(component.showBackToLobbyConfirm()).toBe(false);
+    expect(mockSend).toHaveBeenCalledOnce();
+    const msg = mockSend.mock.calls[0][0];
+    expect(msg.type).toBe('BACK_TO_LOBBY');
+    expect(msg.matchId).toBe('match-1');
   });
 });
 

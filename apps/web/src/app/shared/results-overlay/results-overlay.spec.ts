@@ -16,17 +16,17 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
       { playerId: 'p2', clientId: 'c2', slot: 2, alias: 'Guest', connected: true },
     ],
     readyStates: { p1: true, p2: true },
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: {
       seed: 42,
       cells: [
-        { index: 0, goal: 'A', markedBy: 'p1' },
-        { index: 1, goal: 'B', markedBy: 'p1' },
-        { index: 2, goal: 'C', markedBy: 'p2' },
-        ...Array.from({ length: 22 }, (_, i) => ({ index: i + 3, goal: `G${i + 3}`, markedBy: null })),
+        { index: 0, goal: 'A', difficulty: 0.5, markedBy: 'p1' },
+        { index: 1, goal: 'B', difficulty: 0.5, markedBy: 'p1' },
+        { index: 2, goal: 'C', difficulty: 0.5, markedBy: 'p2' },
+        ...Array.from({ length: 22 }, (_, i) => ({ index: i + 3, goal: `G${i + 3}`, difficulty: 0.5, markedBy: null })),
       ],
     },
-    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: '2024-01-01T00:04:32.000Z', countdownDurationMs: null },
     result: { winnerId: 'p1', reason: 'line' },
     ...overrides,
   };
@@ -43,21 +43,21 @@ function make3PlayerState(overrides: Partial<MatchState> = {}): MatchState {
       { playerId: 'p3', clientId: 'c3', slot: 3, alias: 'Third', connected: true },
     ],
     readyStates: { p1: true, p2: true, p3: true },
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: {
       seed: 42,
       cells: [
-        { index: 0, goal: 'A', markedBy: 'p1' },
-        { index: 1, goal: 'B', markedBy: 'p1' },
-        { index: 2, goal: 'C', markedBy: 'p1' },
-        { index: 3, goal: 'D', markedBy: 'p2' },
-        { index: 4, goal: 'E', markedBy: 'p2' },
-        { index: 5, goal: 'F', markedBy: 'p3' },
-        ...Array.from({ length: 19 }, (_, i) => ({ index: i + 6, goal: `G${i + 6}`, markedBy: null })),
+        { index: 0, goal: 'A', difficulty: 0.5, markedBy: 'p1' },
+        { index: 1, goal: 'B', difficulty: 0.5, markedBy: 'p1' },
+        { index: 2, goal: 'C', difficulty: 0.5, markedBy: 'p1' },
+        { index: 3, goal: 'D', difficulty: 0.5, markedBy: 'p2' },
+        { index: 4, goal: 'E', difficulty: 0.5, markedBy: 'p2' },
+        { index: 5, goal: 'F', difficulty: 0.5, markedBy: 'p3' },
+        ...Array.from({ length: 19 }, (_, i) => ({ index: i + 6, goal: `G${i + 6}`, difficulty: 0.5, markedBy: null })),
       ],
     },
     // p1=3, p2=2, p3=1 → ranks 1, 2, 3
-    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: '2024-01-01T00:00:00.000Z', stoppedAt: '2024-01-01T00:04:32.000Z', countdownDurationMs: null },
     result: { winnerId: 'p1', reason: 'majority' },
     ...overrides,
   };
@@ -166,19 +166,47 @@ describe('ResultsOverlayComponent — score summary', () => {
 });
 
 describe('ResultsOverlayComponent — host-only buttons', () => {
-  it('shows Rematch and Back to Lobby buttons for host (slot 1)', () => {
+  it('shows View Board, Rematch and Back to Lobby buttons for host (slot 1)', () => {
     const { fixture } = setup(makeState(), 'p1');
     const text: string = fixture.nativeElement.textContent;
+    expect(text).toContain('View Board');
     expect(text).toContain('Rematch');
     expect(text).toContain('Back to Lobby');
   });
 
-  it('does not show action buttons for guest (slot 2)', () => {
+  it('shows View Board button for guest (slot 2) but not host actions', () => {
     const { fixture } = setup(makeState(), 'p2');
     const text: string = fixture.nativeElement.textContent;
+    expect(text).toContain('View Board');
     expect(text).not.toContain('Rematch');
     expect(text).not.toContain('Back to Lobby');
     expect(text).toContain('Waiting for host');
+  });
+});
+
+describe('ResultsOverlayComponent — viewBoard output', () => {
+  it('emits viewBoard when View Board button is clicked (host)', () => {
+    const { fixture } = setup(makeState(), 'p1');
+    const viewBoardSpy = vi.fn();
+    fixture.componentInstance.viewBoard.subscribe(viewBoardSpy);
+
+    const buttons: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('button');
+    const viewBoardBtn = Array.from(buttons).find(b => b.textContent?.trim() === 'View Board');
+    viewBoardBtn?.click();
+
+    expect(viewBoardSpy).toHaveBeenCalledOnce();
+  });
+
+  it('emits viewBoard when View Board button is clicked (guest)', () => {
+    const { fixture } = setup(makeState(), 'p2');
+    const viewBoardSpy = vi.fn();
+    fixture.componentInstance.viewBoard.subscribe(viewBoardSpy);
+
+    const buttons: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('button');
+    const viewBoardBtn = Array.from(buttons).find(b => b.textContent?.trim() === 'View Board');
+    viewBoardBtn?.click();
+
+    expect(viewBoardSpy).toHaveBeenCalledOnce();
   });
 });
 

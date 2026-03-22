@@ -8,6 +8,9 @@ export type MatchMode = 'ffa'; // | 'teams_2v2' when team mode is added
 
 export type WinReason = 'line' | 'majority' | 'timer_expiry' | 'draw';
 
+export const DEFAULT_DIFFICULTY = 0.5;
+export const DEFAULT_DIFFICULTY_SPREAD = 0.175;
+
 export interface Player {
   playerId: string;
   clientId: string;
@@ -20,6 +23,7 @@ export interface Player {
 export interface Cell {
   index: number;
   goal: string;
+  difficulty: number; // 0.0–1.0, the actual difficulty of the selected goal
   markedBy: string | null; // playerId of the player who marked it, or null
 }
 
@@ -31,11 +35,14 @@ export interface BingoCard {
 export interface LobbySettings {
   timerMode: TimerMode;
   countdownDurationMs: number | null; // null in stopwatch mode
+  difficulty: number;       // 0.0–1.0, default DEFAULT_DIFFICULTY
+  difficultySpread: number; // default DEFAULT_DIFFICULTY_SPREAD, min 0.05, max 0.5
 }
 
 export interface TimerState {
   mode: TimerMode;
   startedAt: string | null; // ISO 8601 timestamp, null until match starts
+  stoppedAt: string | null; // ISO 8601 timestamp, null until match completes
   countdownDurationMs: number | null; // null in stopwatch mode
 }
 

@@ -6,6 +6,7 @@ function makeTimer(overrides: Partial<TimerState> = {}): TimerState {
   return {
     mode: 'stopwatch',
     startedAt: null,
+    stoppedAt: null,
     countdownDurationMs: null,
     ...overrides,
   };
@@ -67,6 +68,64 @@ describe('TimerService — stopwatch', () => {
 
     vi.advanceTimersByTime(9000);
     expect(values[9]).toBe('00:09');
+
+    sub.unsubscribe();
+  });
+});
+
+describe('TimerService — stoppedAt (frozen display)', () => {
+  it('stopwatch: returns static observable with elapsed time at stoppedAt, no live tick', () => {
+    TestBed.configureTestingModule({});
+    const service = TestBed.inject(TimerService);
+
+    const start = new Date('2024-01-01T00:00:00.000Z').getTime();
+    const stop  = new Date('2024-01-01T00:04:32.000Z').getTime(); // 4m32s later
+
+    const timer = makeTimer({
+      startedAt: new Date(start).toISOString(),
+      stoppedAt: new Date(stop).toISOString(),
+    });
+    const values: string[] = [];
+    const sub = service.getDisplayTimer$(timer).subscribe(v => values.push(v));
+    sub.unsubscribe();
+
+    expect(values).toEqual(['04:32']);
+  });
+
+  it('countdown: returns static observable with remaining time at stoppedAt', () => {
+    TestBed.configureTestingModule({});
+    const service = TestBed.inject(TimerService);
+
+    const start = new Date('2024-01-01T00:00:00.000Z').getTime();
+    const stop  = new Date('2024-01-01T00:01:00.000Z').getTime(); // 60s elapsed
+
+    const timer = makeTimer({
+      mode: 'countdown',
+      startedAt: new Date(start).toISOString(),
+      stoppedAt: new Date(stop).toISOString(),
+      countdownDurationMs: 120_000, // 2m remaining at start → 1m remaining at stop
+    });
+    const values: string[] = [];
+    const sub = service.getDisplayTimer$(timer).subscribe(v => values.push(v));
+    sub.unsubscribe();
+
+    expect(values).toEqual(['01:00']);
+  });
+
+  it('stoppedAt null, stopwatch: still creates a live interval (regression guard)', () => {
+    vi.useFakeTimers();
+    const now = new Date('2024-01-01T00:00:00.000Z').getTime();
+    vi.setSystemTime(now);
+
+    TestBed.configureTestingModule({});
+    const service = TestBed.inject(TimerService);
+
+    const timer = makeTimer({ startedAt: new Date(now).toISOString(), stoppedAt: null });
+    const values: string[] = [];
+    const sub = service.getDisplayTimer$(timer).subscribe(v => values.push(v));
+
+    vi.advanceTimersByTime(2000);
+    expect(values.length).toBeGreaterThan(1); // confirms live ticking
 
     sub.unsubscribe();
   });

@@ -13,7 +13,13 @@ import { SessionStoreService } from '../../core/session-store.service';
 import { MatchSocketService } from '../../core/match-socket.service';
 import { ClientIdService } from '../../core/client-id.service';
 import { isHost, isAllPlayersReady, buildClientMessage } from '../../core/match.helpers';
-import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
+import {
+  DEFAULT_DIFFICULTY,
+  DEFAULT_DIFFICULTY_SPREAD,
+  type TimerMode,
+  type StateUpdatePayload,
+  type WsErrorPayload,
+} from '@bingo/shared';
 
 @Component({
   selector: 'app-lobby',
@@ -72,6 +78,13 @@ import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
                 [class.badge--disconnected]="!player.connected">
                 {{ player.connected ? 'Connected' : 'Disconnected' }}
               </span>
+              @if (amHost() && !player.isMe) {
+                <button class="btn-danger"
+                  style="margin-left: auto; padding: 0.25rem 0.75rem; font-size: 0.8125rem"
+                  (click)="openKickConfirm(player)">
+                  Kick
+                </button>
+              }
             </div>
           }
         </div>
@@ -106,12 +119,61 @@ import type { TimerMode, StateUpdatePayload } from '@bingo/shared';
             </div>
           }
 
+          <div class="form-group">
+            <label>Difficulty — {{ (localDifficulty() * 100).toFixed(0) }}%</label>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              [value]="localDifficulty()"
+              (input)="onDifficultyInput($event)"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Difficulty Spread — ±{{ localDifficultySpread().toFixed(3) }}</label>
+            <input
+              type="range"
+              min="0.05"
+              max="0.5"
+              step="0.025"
+              [value]="localDifficultySpread()"
+              (input)="onDifficultySpreadInput($event)"
+            />
+          </div>
+
           <button class="btn-primary full-width" [disabled]="!canStart()" (click)="startMatch()">
             Start Match
           </button>
         }
+
+        @if (!amHost()) {
+          <hr class="divider" />
+          <div class="form-group">
+            <label>Difficulty — {{ (difficulty() * 100).toFixed(0) }}%</label>
+            <input type="range" min="0" max="1" step="0.05" [value]="difficulty()" disabled />
+          </div>
+          <div class="form-group">
+            <label>Difficulty Spread — ±{{ difficultySpread().toFixed(3) }}</label>
+            <input type="range" min="0.05" max="0.5" step="0.025" [value]="difficultySpread()" disabled />
+          </div>
+        }
       </div>
     </div>
+
+    @if (playerToKick(); as target) {
+      <div class="modal-backdrop" (click)="cancelKick()">
+        <div class="modal" (click)="$event.stopPropagation()">
+          <h2>Kick player?</h2>
+          <p>{{ target.alias }} will be removed from the lobby.</p>
+          <div class="modal__actions">
+            <button class="btn-ghost" (click)="cancelKick()">Cancel</button>
+            <button class="btn-danger" (click)="confirmKick()">Kick {{ target.alias }}</button>
+          </div>
+        </div>
+      </div>
+    }
   `,
 })
 export class LobbyComponent {
@@ -151,20 +213,27 @@ export class LobbyComponent {
     const s = this.state();
     return this.amHost() && s != null && isAllPlayersReady(s);
   });
-  readonly timerMode = computed(() => this.state()?.lobbySettings.timerMode ?? 'stopwatch');
+  readonly timerMode       = computed(() => this.state()?.lobbySettings.timerMode ?? 'stopwatch');
+  readonly difficulty      = computed(() => this.state()?.lobbySettings.difficulty ?? DEFAULT_DIFFICULTY);
+  readonly difficultySpread = computed(() => this.state()?.lobbySettings.difficultySpread ?? DEFAULT_DIFFICULTY_SPREAD);
   readonly seed      = computed(() => this.state()?.card.seed ?? null);
   readonly joinCode  = computed(() => this.sessionStore.joinCode());
 
   readonly isReconnecting = computed(() => this.socket.isReconnecting());
 
-  readonly errorMessage        = signal<string | null>(null);
-  readonly linkCopied          = signal(false);
-  readonly countdownDurationMs = signal<number>(300_000);
-  readonly isEditingCountdown  = signal(false);
+  readonly errorMessage         = signal<string | null>(null);
+  readonly linkCopied           = signal(false);
+  readonly countdownDurationMs  = signal<number>(300_000);
+  readonly isEditingCountdown   = signal(false);
+  readonly playerToKick         = signal<{ playerId: string; alias: string } | null>(null);
+  readonly localDifficulty      = signal<number>(DEFAULT_DIFFICULTY);
+  readonly localDifficultySpread = signal<number>(DEFAULT_DIFFICULTY_SPREAD);
 
   private readonly pendingCountdownEventId = signal<string | null>(null);
 
-  private readonly countdownSubject = new Subject<number>();
+  private readonly countdownSubject       = new Subject<number>();
+  private readonly difficultySubject      = new Subject<number>();
+  private readonly difficultySpreadSubject = new Subject<number>();
 
   constructor() {
     const matchId = this.sessionStore.matchId();
@@ -180,6 +249,10 @@ export class LobbyComponent {
             // A fresh sync is authoritative and clears any stale local pending intent.
             this.pendingCountdownEventId.set(null);
           }
+
+          // Sync difficulty sliders — safe to always update since only the host changes them
+          this.localDifficulty.set(msg.payload.state.lobbySettings.difficulty);
+          this.localDifficultySpread.set(msg.payload.state.lobbySettings.difficultySpread);
 
           const cd = msg.payload.state.lobbySettings.countdownDurationMs;
           if (cd == null) return;
@@ -202,7 +275,10 @@ export class LobbyComponent {
             this.sessionStore.matchState.set({ ...current, players: msg.payload.players, readyStates: msg.payload.readyStates });
           }
         } else if (msg.type === 'ERROR') {
-          this.errorMessage.set(msg.payload.message);
+          const payload = msg.payload as WsErrorPayload;
+          if (payload.code !== 'KICKED') {
+            this.errorMessage.set(payload.message);
+          }
         }
       });
 
@@ -218,6 +294,20 @@ export class LobbyComponent {
         this.socket.send(message);
       });
 
+    this.difficultySubject
+      .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
+      .subscribe(difficulty => {
+        const matchId = this.sessionStore.matchId()!;
+        this.socket.send(buildClientMessage('SET_LOBBY_SETTINGS', matchId, this.clientId, { difficulty }));
+      });
+
+    this.difficultySpreadSubject
+      .pipe(debounceTime(300), takeUntilDestroyed(this.destroyRef))
+      .subscribe(difficultySpread => {
+        const matchId = this.sessionStore.matchId()!;
+        this.socket.send(buildClientMessage('SET_LOBBY_SETTINGS', matchId, this.clientId, { difficultySpread }));
+      });
+
     effect(() => {
       const s = this.sessionStore.matchState();
       if (s?.status === 'InProgress') void this.router.navigate(['/match', s.matchId]);
@@ -225,13 +315,20 @@ export class LobbyComponent {
         this.sessionStore.clearSession();
         void this.router.navigate(['/match', s.matchId]);
       }
-      if (s?.status === 'Abandoned') void this.router.navigate(['/'], { queryParams: { abandoned: true } });
+      if (s?.status === 'Abandoned') void this.router.navigate(['/'], { state: { abandoned: true } });
     });
 
     effect(() => {
       if (this.socket.sessionReplaced()) {
         this.sessionStore.clearSession();
-        void this.router.navigate(['/'], { queryParams: { replaced: true } });
+        void this.router.navigate(['/'], { state: { replaced: true } });
+      }
+    });
+
+    effect(() => {
+      if (this.socket.wasKicked()) {
+        this.sessionStore.clear();
+        void this.router.navigate(['/'], { state: { kicked: true } });
       }
     });
   }
@@ -249,7 +346,7 @@ export class LobbyComponent {
     this.socket.send(
       buildClientMessage('SET_LOBBY_SETTINGS', matchId, this.clientId, {
         timerMode: mode,
-        ...(mode === 'countdown' ? { countdownDurationMs: this.countdownDurationMs() } : {}),
+        countdownDurationMs: mode === 'countdown' ? this.countdownDurationMs() : null,
       }),
     );
   }
@@ -270,9 +367,37 @@ export class LobbyComponent {
     this.isEditingCountdown.set(false);
   }
 
+  onDifficultyInput(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.localDifficulty.set(value);
+    this.difficultySubject.next(value);
+  }
+
+  onDifficultySpreadInput(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.localDifficultySpread.set(value);
+    this.difficultySpreadSubject.next(value);
+  }
+
   startMatch(): void {
     const matchId = this.sessionStore.matchId()!;
     this.socket.send(buildClientMessage('START_MATCH', matchId, this.clientId, {}));
+  }
+
+  openKickConfirm(player: { playerId: string; alias: string | null | undefined }): void {
+    this.playerToKick.set({ playerId: player.playerId, alias: player.alias ?? 'Unknown' });
+  }
+
+  confirmKick(): void {
+    const target = this.playerToKick();
+    if (!target) return;
+    const matchId = this.sessionStore.matchId()!;
+    this.socket.send(buildClientMessage('KICK_PLAYER', matchId, this.clientId, { playerId: target.playerId }));
+    this.playerToKick.set(null);
+  }
+
+  cancelKick(): void {
+    this.playerToKick.set(null);
   }
 
   copyInviteLink(): void {

@@ -18,19 +18,21 @@ function makeState(overrides: Partial<MatchState> = {}): MatchState {
       { playerId: 'p2', clientId: 'c2', slot: 2, alias: 'Guest', connected: true },
     ],
     readyStates: {},
-    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+    lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
     card: { seed: 42, cells: [] },
-    timer: { mode: 'stopwatch', startedAt: null, countdownDurationMs: null },
+    timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
     result: null,
     ...overrides,
   };
 }
 
 function setup(initialState: MatchState | null = null) {
-  const matchStateSignal = signal<MatchState | null>(initialState);
-  const matchIdSignal    = signal<string | null>('match-1');
-  const playerIdSignal   = signal<string | null>('p1');
-  const joinCodeSignal   = signal<string | null>('ABC123');
+  const matchStateSignal      = signal<MatchState | null>(initialState);
+  const matchIdSignal         = signal<string | null>('match-1');
+  const playerIdSignal        = signal<string | null>('p1');
+  const joinCodeSignal        = signal<string | null>('ABC123');
+  const sessionReplacedSignal = signal(false);
+  const wasKickedSignal       = signal(false);
 
   const messagesSubject = new Subject<ServerMessage>();
 
@@ -66,7 +68,8 @@ function setup(initialState: MatchState | null = null) {
           disconnect:       mockDisconnect,
           connectionStatus: signal('connected'),
           isReconnecting:   signal(false),
-          sessionReplaced:  signal(false),
+          sessionReplaced:  sessionReplacedSignal,
+          wasKicked:        wasKickedSignal,
         },
       },
       {
@@ -83,6 +86,7 @@ function setup(initialState: MatchState | null = null) {
   return {
     fixture, comp,
     matchStateSignal, matchIdSignal, playerIdSignal,
+    sessionReplacedSignal, wasKickedSignal,
     messagesSubject,
     mockSend, mockConnect, mockDisconnect, mockNavigate, mockSaveSession, mockClearSession, mockClear,
   };
@@ -114,7 +118,7 @@ describe('LobbyComponent — socket messages', () => {
 
   it('STATE_SYNC syncs countdownDurationMs when lobbySettings has a value', () => {
     const { comp, messagesSubject } = setup();
-    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 120_000 } });
+    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 120_000, difficulty: 0.5, difficultySpread: 0.175 } });
 
     messagesSubject.next({ type: 'STATE_SYNC', matchId: 'match-1', payload: { state } });
 
@@ -130,7 +134,7 @@ describe('LobbyComponent — socket messages', () => {
     comp.onCountdownInput({ target: { value: '200000' } } as unknown as Event);
 
     const syncedState = makeState({
-      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 240_000 },
+      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 240_000, difficulty: 0.5, difficultySpread: 0.175 },
     });
     messagesSubject.next({ type: 'STATE_SYNC', matchId: 'match-1', payload: { state: syncedState } });
 
@@ -270,7 +274,7 @@ describe('LobbyComponent — timer settings', () => {
     expect(msg.payload.countdownDurationMs).toBeDefined();
   });
 
-  it('onTimerModeChange to stopwatch sends SET_LOBBY_SETTINGS without countdownDurationMs', () => {
+  it('onTimerModeChange to stopwatch sends SET_LOBBY_SETTINGS with countdownDurationMs: null', () => {
     const state = makeState();
     const { comp, mockSend } = setup(state);
 
@@ -279,11 +283,11 @@ describe('LobbyComponent — timer settings', () => {
     const msg = mockSend.mock.calls[0]![0];
     expect(msg.type).toBe('SET_LOBBY_SETTINGS');
     expect(msg.payload.timerMode).toBe('stopwatch');
-    expect(msg.payload.countdownDurationMs).toBeUndefined();
+    expect(msg.payload.countdownDurationMs).toBeNull();
   });
 
   it('ignores non-ack STATE_UPDATE countdown while local intent is pending', async () => {
-    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300_000 } });
+    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300_000, difficulty: 0.5, difficultySpread: 0.175 } });
     const { comp, mockSend, messagesSubject } = setup(state);
 
     comp.onCountdownInput({ target: { value: '180000' } } as unknown as Event);
@@ -293,7 +297,7 @@ describe('LobbyComponent — timer settings', () => {
     const pendingEventId = mockSend.mock.calls[0]![0].eventId as string;
 
     const otherUpdate = makeState({
-      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 120_000 },
+      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 120_000, difficulty: 0.5, difficultySpread: 0.175 },
     });
     messagesSubject.next({
       type: 'STATE_UPDATE',
@@ -304,7 +308,7 @@ describe('LobbyComponent — timer settings', () => {
     expect(comp.countdownDurationMs()).toBe(180_000);
 
     const ackUpdate = makeState({
-      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 175_000 },
+      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 175_000, difficulty: 0.5, difficultySpread: 0.175 },
     });
     messagesSubject.next({
       type: 'STATE_UPDATE',
@@ -316,14 +320,14 @@ describe('LobbyComponent — timer settings', () => {
   });
 
   it('does not overwrite countdown while actively editing and no pending ack', () => {
-    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300_000 } });
+    const state = makeState({ lobbySettings: { timerMode: 'countdown', countdownDurationMs: 300_000, difficulty: 0.5, difficultySpread: 0.175 } });
     const { comp, messagesSubject } = setup(state);
 
     comp.onCountdownInput({ target: { value: '210000' } } as unknown as Event);
     comp.onCountdownFocus();
 
     const incoming = makeState({
-      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 150_000 },
+      lobbySettings: { timerMode: 'countdown', countdownDurationMs: 150_000, difficulty: 0.5, difficultySpread: 0.175 },
     });
     messagesSubject.next({
       type: 'STATE_UPDATE',
@@ -389,7 +393,7 @@ describe('LobbyComponent — status-route effect', () => {
     matchStateSignal.set(makeState({ matchId: 'match-1', status: 'Abandoned' }));
     TestBed.flushEffects();
 
-    expect(mockNavigate).toHaveBeenCalledWith(['/'], { queryParams: { abandoned: true } });
+    expect(mockNavigate).toHaveBeenCalledWith(['/'], { state: { abandoned: true } });
   });
 
   it('does not navigate when status is Lobby', () => {
@@ -432,6 +436,62 @@ describe('LobbyComponent — socket lifecycle', () => {
   });
 });
 
+describe('LobbyComponent — difficulty sliders', () => {
+  it('onDifficultyInput updates localDifficulty and sends debounced SET_LOBBY_SETTINGS', async () => {
+    const state = makeState();
+    const { comp, mockSend } = setup(state);
+
+    comp.onDifficultyInput({ target: { value: '0.8' } } as unknown as Event);
+
+    expect(comp.localDifficulty()).toBe(0.8);
+
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const msg = mockSend.mock.calls[0]![0];
+    expect(msg.type).toBe('SET_LOBBY_SETTINGS');
+    expect(msg.payload.difficulty).toBe(0.8);
+    expect(msg.payload.timerMode).toBeUndefined();
+  });
+
+  it('onDifficultySpreadInput updates localDifficultySpread and sends debounced SET_LOBBY_SETTINGS', async () => {
+    const state = makeState();
+    const { comp, mockSend } = setup(state);
+
+    comp.onDifficultySpreadInput({ target: { value: '0.3' } } as unknown as Event);
+
+    expect(comp.localDifficultySpread()).toBe(0.3);
+
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const msg = mockSend.mock.calls[0]![0];
+    expect(msg.type).toBe('SET_LOBBY_SETTINGS');
+    expect(msg.payload.difficultySpread).toBe(0.3);
+    expect(msg.payload.timerMode).toBeUndefined();
+  });
+
+  it('STATE_SYNC syncs localDifficulty and localDifficultySpread from server state', () => {
+    const { comp, messagesSubject } = setup();
+    const state = makeState({ lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.9, difficultySpread: 0.4 } });
+
+    messagesSubject.next({ type: 'STATE_SYNC', matchId: 'match-1', payload: { state } });
+
+    expect(comp.localDifficulty()).toBe(0.9);
+    expect(comp.localDifficultySpread()).toBe(0.4);
+  });
+
+  it('STATE_UPDATE syncs localDifficulty and localDifficultySpread from server state', () => {
+    const { comp, messagesSubject } = setup();
+    const state = makeState({ lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.2, difficultySpread: 0.1 } });
+
+    messagesSubject.next({ type: 'STATE_UPDATE', matchId: 'match-1', payload: { state } });
+
+    expect(comp.localDifficulty()).toBe(0.2);
+    expect(comp.localDifficultySpread()).toBe(0.1);
+  });
+});
+
 describe('LobbyComponent — session persistence', () => {
   it('saves /lobby session on load with joinCode', () => {
     const { mockSaveSession } = setup();
@@ -450,5 +510,208 @@ describe('LobbyComponent — player list identity', () => {
 
     expect(me?.isMe).toBe(true);
     expect(other?.isMe).toBe(false);
+  });
+});
+
+describe('LobbyComponent — kick player', () => {
+  it('openKickConfirm sets playerToKick with resolved alias', () => {
+    const state = makeState();
+    const { comp } = setup(state);
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+
+    expect(comp.playerToKick()).toEqual({ playerId: 'p2', alias: 'Guest' });
+  });
+
+  it('openKickConfirm resolves null alias to "Unknown"', () => {
+    const state = makeState();
+    const { comp } = setup(state);
+
+    comp.openKickConfirm({ playerId: 'p2', alias: null });
+
+    expect(comp.playerToKick()).toEqual({ playerId: 'p2', alias: 'Unknown' });
+  });
+
+  it('cancelKick clears playerToKick', () => {
+    const state = makeState();
+    const { comp } = setup(state);
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    comp.cancelKick();
+
+    expect(comp.playerToKick()).toBeNull();
+  });
+
+  it('confirmKick sends KICK_PLAYER with correct playerId', () => {
+    const state = makeState();
+    const { comp, mockSend } = setup(state);
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    comp.confirmKick();
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const msg = mockSend.mock.calls[0]![0];
+    expect(msg.type).toBe('KICK_PLAYER');
+    expect(msg.payload.playerId).toBe('p2');
+    expect(msg.matchId).toBe('match-1');
+  });
+
+  it('confirmKick clears playerToKick signal after sending', () => {
+    const state = makeState();
+    const { comp } = setup(state);
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    comp.confirmKick();
+
+    expect(comp.playerToKick()).toBeNull();
+  });
+
+  it('confirmKick does nothing when playerToKick is null', () => {
+    const state = makeState();
+    const { comp, mockSend } = setup(state);
+
+    comp.confirmKick();
+
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('host sees kick button on non-self player cards', () => {
+    // playerIdSignal defaults to 'p1' (host) in setup()
+    const state = makeState();
+    const { fixture } = setup(state);
+    fixture.detectChanges();
+
+    // p2's card should have a kick button; p1's should not
+    const playerCards = fixture.nativeElement.querySelectorAll('.player-card') as NodeListOf<Element>;
+    // Find cards with a .btn-danger button inside them (the kick button)
+    const cardsWithKick = Array.from(playerCards).filter(card => card.querySelector('.btn-danger'));
+    expect(cardsWithKick).toHaveLength(1);
+  });
+
+  it('host does not see kick button on own player card', () => {
+    const state = makeState();
+    const { fixture } = setup(state);
+    fixture.detectChanges();
+
+    // The host's card (p1) should have no kick button
+    const playerCards = fixture.nativeElement.querySelectorAll('.player-card') as NodeListOf<Element>;
+    const hostCard = Array.from(playerCards).find(card =>
+      card.textContent?.includes('Host')
+    );
+    expect(hostCard?.querySelector('.btn-danger')).toBeNull();
+  });
+
+  it('non-host does not see any kick buttons', () => {
+    const state = makeState();
+    const { fixture, playerIdSignal } = setup(state);
+    playerIdSignal.set('p2'); // switch to non-host
+    fixture.detectChanges();
+
+    const buttons = fixture.nativeElement.querySelectorAll('.player-card .btn-danger');
+    expect(buttons).toHaveLength(0);
+  });
+
+  it('clicking kick button opens confirmation modal with correct alias', () => {
+    const state = makeState();
+    const { fixture } = setup(state);
+    fixture.detectChanges();
+
+    // Click the kick button (there is exactly one, on the guest's card)
+    const kickBtn = fixture.nativeElement.querySelector('.player-card .btn-danger') as HTMLButtonElement;
+    kickBtn.click();
+    fixture.detectChanges();
+
+    const modal = fixture.nativeElement.querySelector('.modal') as HTMLElement | null;
+    expect(modal).not.toBeNull();
+    expect(modal?.textContent).toContain('Guest');
+  });
+
+  it('clicking Cancel in modal closes it without sending', () => {
+    const state = makeState();
+    const { fixture, comp, mockSend } = setup(state);
+    fixture.detectChanges();
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    fixture.detectChanges();
+
+    const cancelBtn = fixture.nativeElement.querySelector('.modal .btn-ghost') as HTMLButtonElement;
+    cancelBtn.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.modal')).toBeNull();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('clicking modal backdrop closes modal without sending', () => {
+    const state = makeState();
+    const { fixture, comp, mockSend } = setup(state);
+    fixture.detectChanges();
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    fixture.detectChanges();
+
+    const backdrop = fixture.nativeElement.querySelector('.modal-backdrop') as HTMLElement;
+    backdrop.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.modal')).toBeNull();
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it('clicking Confirm Kick button in modal sends KICK_PLAYER and closes modal', () => {
+    const state = makeState();
+    const { fixture, comp, mockSend } = setup(state);
+    fixture.detectChanges();
+
+    comp.openKickConfirm({ playerId: 'p2', alias: 'Guest' });
+    fixture.detectChanges();
+
+    // The modal has two .btn-danger buttons: the kick button in the player card and the confirm button in the modal.
+    // Query specifically inside .modal to get the confirm button.
+    const confirmBtn = fixture.nativeElement.querySelector('.modal .btn-danger') as HTMLButtonElement;
+    confirmBtn.click();
+    fixture.detectChanges();
+
+    expect(mockSend).toHaveBeenCalledOnce();
+    const msg = mockSend.mock.calls[0]![0];
+    expect(msg.type).toBe('KICK_PLAYER');
+    expect(msg.payload.playerId).toBe('p2');
+    expect(fixture.nativeElement.querySelector('.modal')).toBeNull();
+  });
+});
+
+describe('LobbyComponent — kicked player UX', () => {
+  it('does not set errorMessage when ERROR code is KICKED', () => {
+    const { comp, messagesSubject } = setup();
+
+    messagesSubject.next({
+      type: 'ERROR',
+      matchId: 'match-1',
+      payload: { code: 'KICKED', message: 'You have been removed from the match by the host' },
+    });
+
+    expect(comp.errorMessage()).toBeNull();
+  });
+
+  it('navigates to / with ?kicked=true when wasKicked becomes true', () => {
+    const { wasKickedSignal, mockNavigate, mockClear } = setup();
+
+    wasKickedSignal.set(true);
+    TestBed.flushEffects();
+
+    expect(mockNavigate).toHaveBeenCalledWith(['/'], { state: { kicked: true } });
+    expect(mockClear).toHaveBeenCalledOnce();
+  });
+
+  it('still sets errorMessage for other error codes when wasKicked is false', () => {
+    const { comp, messagesSubject } = setup();
+
+    messagesSubject.next({
+      type: 'ERROR',
+      matchId: 'match-1',
+      payload: { code: 'INVALID_STATE', message: 'Something went wrong' },
+    });
+
+    expect(comp.errorMessage()).toBe('Something went wrong');
   });
 });

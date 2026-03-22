@@ -27,6 +27,15 @@ import { generateAlias } from '../../core/alias';
       </div>
     }
 
+    @if (kickedBanner()) {
+      <div class="banner banner--error">
+        <span>You were removed from the lobby by the host.</span>
+        <div class="banner__actions">
+          <button class="btn-ghost" (click)="kickedBanner.set(false)">Dismiss</button>
+        </div>
+      </div>
+    }
+
     @if (replacedBanner()) {
       <div class="banner banner--warning">
         <span>Your session was replaced by another tab or window.</span>
@@ -113,6 +122,7 @@ export class HomeComponent {
   readonly aliasError      = signal<string | null>(null);
   readonly abandonedBanner = signal(false);
   readonly forbiddenBanner = signal(false);
+  readonly kickedBanner    = signal(false);
   readonly replacedBanner  = signal(false);
   readonly rejoinSession   = signal<{ matchId: string; route: '/lobby' | '/match'; joinCode?: string } | null>(null);
 
@@ -121,18 +131,33 @@ export class HomeComponent {
       this.sessionStore.saveAlias(generateAlias());
     }
 
+    // Transient banners come from navigation state rather than query params so they
+    // don't survive a page refresh or back-button navigation. We strip our custom
+    // keys from the history entry immediately after reading them.
+    const state = (window.history.state ?? {}) as Record<string, unknown>;
+    if (state['abandoned'] === true) {
+      this.abandonedBanner.set(true);
+      this.sessionStore.clear();
+    }
+    if (state['error'] === 'forbidden') {
+      this.forbiddenBanner.set(true);
+      this.sessionStore.clear();
+    }
+    if (state['kicked'] === true) {
+      this.kickedBanner.set(true);
+      this.sessionStore.clear();
+    }
+    if (state['replaced'] === true) {
+      this.replacedBanner.set(true);
+    }
+    if (state['abandoned'] !== undefined || state['error'] !== undefined ||
+        state['kicked'] !== undefined || state['replaced'] !== undefined) {
+      const { abandoned, error, kicked, replaced, ...rest } = state;
+      history.replaceState(rest, '');
+    }
+
+    // ?joinCode stays as a query param — it's a shareable/bookmarkable URL.
     this.route.queryParamMap.pipe(take(1)).subscribe(params => {
-      if (params.get('abandoned') === 'true') {
-        this.abandonedBanner.set(true);
-        this.sessionStore.clear();
-      }
-      if (params.get('error') === 'forbidden') {
-        this.forbiddenBanner.set(true);
-        this.sessionStore.clear();
-      }
-      if (params.get('replaced') === 'true') {
-        this.replacedBanner.set(true);
-      }
       const code = params.get('joinCode');
       if (code) {
         this.joinCodeInput.set(code.toUpperCase());

@@ -42,6 +42,7 @@ export interface GetMatchResponse {
   matchId: string;
   playerId: string;
   state: MatchState;
+  joinCode: string | null;   // null if expired or no code on record
 }
 
 export interface ResolveJoinCodeResponse {

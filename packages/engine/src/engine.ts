@@ -51,6 +51,7 @@ export function validateEvent(state: MatchState, event: ClientMessage): void {
         throw new EngineError('INVALID_EVENT', 'countdownDurationMs is required when timerMode is countdown');
       return;
 
+
     case 'START_MATCH':
       if (state.status !== 'Lobby')
         throw new EngineError('INVALID_STATE', 'START_MATCH requires Lobby status');
@@ -150,12 +151,21 @@ export function applyEvent(
       };
 
     case 'SET_LOBBY_SETTINGS': {
-      const { timerMode, countdownDurationMs } = event.payload;
-      const duration = countdownDurationMs ?? null;
+      const { payload } = event;
+      const newLobbySettings = {
+        ...state.lobbySettings,
+        ...(payload.timerMode !== undefined && { timerMode: payload.timerMode }),
+        ...('countdownDurationMs' in payload && { countdownDurationMs: payload.countdownDurationMs ?? null }),
+        ...(payload.difficulty !== undefined && { difficulty: payload.difficulty }),
+        ...(payload.difficultySpread !== undefined && { difficultySpread: payload.difficultySpread }),
+      };
       return {
         ...state,
-        lobbySettings: { timerMode, countdownDurationMs: duration },
-        timer: { ...state.timer, mode: timerMode, countdownDurationMs: duration },
+        lobbySettings: newLobbySettings,
+        // Timer only updated if timerMode was explicitly changed
+        timer: payload.timerMode !== undefined
+          ? { ...state.timer, mode: newLobbySettings.timerMode, countdownDurationMs: newLobbySettings.countdownDurationMs }
+          : state.timer,
       };
     }
 
@@ -164,7 +174,7 @@ export function applyEvent(
         ...state,
         status: 'InProgress',
         card: ctx.newCard ?? state.card,
-        timer: { ...state.timer, startedAt: ctx.nowIso ?? null },
+        timer: { ...state.timer, startedAt: ctx.nowIso ?? null, stoppedAt: null },
       };
 
     case 'MARK_CELL':
@@ -197,7 +207,7 @@ export function applyEvent(
       return {
         ...state,
         card: newCard,
-        timer: { ...state.timer, startedAt: ctx.nowIso ?? null },
+        timer: { ...state.timer, startedAt: ctx.nowIso ?? null, stoppedAt: null },
       };
     }
 
@@ -209,7 +219,7 @@ export function applyEvent(
           ...state.card,
           cells: state.card.cells.map((c) => ({ ...c, markedBy: null })),
         },
-        timer: { ...state.timer, startedAt: null },
+        timer: { ...state.timer, startedAt: null, stoppedAt: null },
         readyStates: {},
         result: null,
       };
@@ -223,7 +233,7 @@ export function applyEvent(
         ...state,
         status: 'InProgress',
         card: rematchCard,
-        timer: { ...state.timer, startedAt: ctx.nowIso ?? null },
+        timer: { ...state.timer, startedAt: ctx.nowIso ?? null, stoppedAt: null },
         result: null,
       };
     }

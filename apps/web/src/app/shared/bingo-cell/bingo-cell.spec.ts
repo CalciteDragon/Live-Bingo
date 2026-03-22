@@ -3,7 +3,7 @@ import { BingoCellComponent } from './bingo-cell';
 import type { Cell } from '@bingo/shared';
 
 function makeCell(overrides: Partial<Cell> = {}): Cell {
-  return { index: 0, goal: 'Mine Diamonds', markedBy: null, ...overrides };
+  return { index: 0, goal: 'Mine Diamonds', difficulty: 0.5, markedBy: null, ...overrides };
 }
 
 afterEach(() => TestBed.resetTestingModule());
@@ -107,5 +107,48 @@ describe('BingoCellComponent — click emission', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('Kill the Ender Dragon');
+  });
+});
+
+describe('BingoCellComponent — difficulty color', () => {
+  it('difficultyColor is green (hue=120) for difficulty=0', () => {
+    const fixture = TestBed.createComponent(BingoCellComponent);
+    fixture.componentRef.setInput('cell', makeCell({ difficulty: 0 }));
+    fixture.componentRef.setInput('playerColorMap', {});
+    fixture.componentRef.setInput('isActive', true);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.difficultyColor).toBe('hsl(120, 70%, 50%)');
+  });
+
+  it('difficultyColor is red (hue=0) for difficulty=1', () => {
+    const fixture = TestBed.createComponent(BingoCellComponent);
+    fixture.componentRef.setInput('cell', makeCell({ difficulty: 1 }));
+    fixture.componentRef.setInput('playerColorMap', {});
+    fixture.componentRef.setInput('isActive', true);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.difficultyColor).toBe('hsl(0, 70%, 50%)');
+  });
+
+  it('difficultyColor is yellow-green (hue=60) for difficulty=0.5', () => {
+    const fixture = TestBed.createComponent(BingoCellComponent);
+    fixture.componentRef.setInput('cell', makeCell({ difficulty: 0.5 }));
+    fixture.componentRef.setInput('playerColorMap', {});
+    fixture.componentRef.setInput('isActive', true);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.difficultyColor).toBe('hsl(60, 70%, 50%)');
+  });
+
+  it('sets --difficulty-color CSS custom property on the button', () => {
+    const fixture = TestBed.createComponent(BingoCellComponent);
+    fixture.componentRef.setInput('cell', makeCell({ difficulty: 0 }));
+    fixture.componentRef.setInput('playerColorMap', {});
+    fixture.componentRef.setInput('isActive', true);
+    fixture.detectChanges();
+
+    const btn: HTMLButtonElement = fixture.nativeElement.querySelector('button');
+    expect(btn.style.getPropertyValue('--difficulty-color')).toBe('hsl(120, 70%, 50%)');
   });
 });

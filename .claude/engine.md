@@ -49,7 +49,7 @@ Pure function that returns a new MatchState. Never mutates input. Caller must ca
 Key behaviors:
 - SYNC_STATE: returns state unchanged
 - SET_READY: updates `readyStates[caller.playerId]`
-- SET_LOBBY_SETTINGS: updates `lobbySettings` and `timer` mode/duration
+- SET_LOBBY_SETTINGS: partial-merge into `lobbySettings` — only fields present in payload are applied. Timer mode/duration only updated if `timerMode` is explicitly in payload. `countdownDurationMs` uses `'countdownDurationMs' in payload` check to allow explicit `null`.
 - START_MATCH: status→InProgress, applies `ctx.newCard`, sets `timer.startedAt`
 - MARK_CELL: sets `cell.markedBy = caller.playerId`
 - UNMARK_CELL: sets `cell.markedBy = null`
@@ -74,23 +74,26 @@ Called by the server when countdown expires. Counts cells per player, highest co
 
 ## Board Generation (src/board.ts)
 
-`generateBoard(seed: number) → BingoCard`
+`generateBoard(seed: number, difficulty?: number, spread?: number) → BingoCard`
 
 - Uses **mulberry32** PRNG (seedable, deterministic)
-- **Fisher-Yates shuffle** of the GOALS array
-- Takes first 25 goals, creates cells with `markedBy: null`
-- Same seed always produces the same board
+- **Gaussian-weighted sampling without replacement**: `weight(goal) = exp(-0.5 * ((goal.difficulty - target) / spread)^2)`
+- **Two-phase algorithm**: (1) select 25 goals via weighted picks, (2) Fisher-Yates shuffle positions to eliminate spatial clustering bias
+- Center cell (index 12) is picked first with `centerTarget = min(1.0, difficulty + spread)` (slightly harder than average)
+- PRNG call order is fixed: center pick → 24 sequential picks → shuffle
+- Each `Cell` carries `difficulty` from the selected `Goal`
+- Same seed + same settings always produces the same board; different difficulty → different board
 
 ## Goals List (src/goals.ts)
 
-`GOALS: readonly string[]` — 89 hardcoded Minecraft bingo goals across categories:
-- Crafting & tools (13)
-- Mining & resources (10)
-- Exploration & structures (11)
-- Mobs & combat (15)
-- Food & farming (13)
-- Achievements & feats (12)
-- Completely random (15)
+`GOALS: readonly Goal[]` — 121 hardcoded Minecraft bingo goals with `difficulty` values (0.00–1.00), sorted in ascending difficulty order:
+
+```typescript
+interface Goal {
+  text: string       // displayed goal label
+  difficulty: number // 0.0–1.0
+}
+```
 
 ## Tests
 

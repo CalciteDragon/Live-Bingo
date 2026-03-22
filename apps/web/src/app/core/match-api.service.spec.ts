@@ -14,9 +14,9 @@ const mockMatchState: MatchState = {
   status: 'Lobby',
   players: [],
   readyStates: {},
-  lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null },
+  lobbySettings: { timerMode: 'stopwatch', countdownDurationMs: null, difficulty: 0.5, difficultySpread: 0.175 },
   card: { seed: 1, cells: [] },
-  timer: { mode: 'stopwatch', startedAt: null, countdownDurationMs: null },
+  timer: { mode: 'stopwatch', startedAt: null, stoppedAt: null, countdownDurationMs: null },
   result: null,
 };
 
@@ -64,7 +64,7 @@ describe('MatchApiService', () => {
   });
 
   it('getMatch calls GET /matches/:id', () => {
-    const resp: GetMatchResponse = { matchId: 'abc', playerId: 'p1', state: mockMatchState };
+    const resp: GetMatchResponse = { matchId: 'abc', playerId: 'p1', state: mockMatchState, joinCode: null };
     let result: GetMatchResponse | undefined;
     svc.getMatch('abc').subscribe(r => (result = r));
     const req = controller.expectOne(`${BASE}/matches/abc`);

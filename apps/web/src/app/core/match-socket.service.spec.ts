@@ -265,6 +265,46 @@ describe('MatchSocketService', () => {
     expect(svc.sessionReplaced()).toBe(false);
   });
 
+  it('KICKED error prevents reconnect and sets wasKicked', () => {
+    vi.useFakeTimers();
+    try {
+      svc.connect('match-1');
+      const ws = MockWebSocket.instances[0];
+      ws.open();
+
+      ws.receive({
+        type: 'ERROR',
+        matchId: 'match-1',
+        payload: { code: 'KICKED', message: 'You have been removed from the match by the host' },
+      });
+
+      expect(svc.wasKicked()).toBe(true);
+
+      ws.close();
+
+      expect(svc.connectionStatus()).toBe('disconnected');
+      expect(svc.isReconnecting()).toBe(false);
+      vi.advanceTimersByTime(5000);
+      expect(MockWebSocket.instances).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('wasKicked is reset on new connect()', () => {
+    svc.connect('match-1');
+    MockWebSocket.instances[0].open();
+    MockWebSocket.instances[0].receive({
+      type: 'ERROR',
+      matchId: 'match-1',
+      payload: { code: 'KICKED', message: 'Kicked.' },
+    });
+    expect(svc.wasKicked()).toBe(true);
+
+    svc.connect('match-2');
+    expect(svc.wasKicked()).toBe(false);
+  });
+
   it('multiple subscribers share the same socket (share operator)', () => {
     const r1: ServerMessage[] = [];
     const r2: ServerMessage[] = [];
